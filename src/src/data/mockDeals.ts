@@ -1,0 +1,62 @@
+// src/data/mockDeals.ts
+
+export const mockDeals = [
+  {
+    id: "deal-001",
+    image: "https://source.unsplash.com/featured/?house,1",
+    address: "123 Vice City Blvd, Miami, FL",
+    city: "Miami",
+    state: "FL",
+    price: 425000,
+    bedrooms: 3,
+    bathrooms: 2,
+    sqft: 1500,
+    yearBuilt: 1995,
+    rehab: "Light",
+    dealType: "Creative Finance",
+    originalLoanAmount: 350000,
+    currentBalance: 290000,
+    interestRate: 4.2,
+    piti: 2100,
+    mortgageStatementLink: "https://example.com/mortgage.pdf",
+    estimatedEquity: 80000,
+    estimatedRent: 2800,
+    comps: ["124 Main", "122 Main", "130 Oak"],
+    entryFee: 30000,
+    cashToSeller: 20000,
+    arrears: 4000,
+    closingCosts: 3000,
+    repairs: 2000,
+    marketing: 1000,
+    exitStrategy: "Rental + Refinance",
+    status: "Under Contract",
+    assignmentProfit: 4000,       // ✅ needed for StatsBar
+    buyerInquiries: 80,         // ✅ needed for StatsBar
+    wholesaler: 'WealthyWhyte'              // ✅ needed for StatsBar
+
+  },
+  {
+    id: "deal-002",
+    image: "https://source.unsplash.com/featured/?house,2",
+    address: "456 Ocean Dr, Miami Beach, FL",
+    city: "Miami Beach",
+    state: "FL",
+    price: 899000,
+    bedrooms: 4,
+    bathrooms: 3,
+    sqft: 2300,
+    dealType: "Seller Finance",
+  },
+  {
+    id: "deal-003",
+    image: "https://source.unsplash.com/featured/?house,3",
+    address: "789 Palm Ave, Coral Gables, FL",
+    city: "Coral Gables",
+    state: "FL",
+    price: 650000,
+    bedrooms: 2,
+    bathrooms: 2,
+    sqft: 1200,
+    dealType: "Subject-To",
+  },
+];

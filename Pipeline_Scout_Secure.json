@@ -1,0 +1,578 @@
+{
+  "name": "Pipeline Scout - Supabase Only (SECURE)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pipeline-scout/upload",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "38a04fc0-da7d-4bf7-82a6-f4286d967a6d",
+      "name": "Webhook Upload",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-4032, 272],
+      "webhookId": "pipeline-scout-upload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\n\n// Get webhook data\nconst webhookData = $input.first().json.body || $input.first().json;\nconst file = webhookData.file || {};\nconst fileName = file.name || 'unknown.csv';\nconst fileData = file.data || '';\nconst account_id = webhookData.account_id || null;\n\n// Generate unique dataset ID\nconst timestamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15);\nconst randomPart = crypto.randomBytes(4).toString('hex');\nconst dataset_id = `DS-${timestamp}-${randomPart}`;\n\n// Extract dataset name\nconst dataset_name = fileName\n  .replace(/\\.csv$/i, '')\n  .replace(/[^a-zA-Z0-9_-]/g, '_')\n  .slice(0, 50);\n\n// Parse CSV data\nlet csvContent;\nif (fileData.startsWith('data:')) {\n  const base64Data = fileData.split(',')[1];\n  csvContent = Buffer.from(base64Data, 'base64').toString('utf-8');\n} else if (Buffer.from(fileData, 'base64').toString('base64') === fileData) {\n  csvContent = Buffer.from(fileData, 'base64').toString('utf-8');\n} else {\n  csvContent = fileData;\n}\n\n// Generate source hash\nconst source_hash = crypto.createHash('sha256').update(csvContent).digest('hex');\n\nreturn [{\n  json: {\n    dataset_id,\n    dataset_name,\n    source_hash,\n    original_filename: fileName,\n    upload_timestamp: new Date().toISOString(),\n    status: 'UPLOADED',\n    csv_content: csvContent,\n    account_id: account_id\n  }\n}];"
+      },
+      "id": "9bfe6d74-9253-4f09-bcc8-5c4ca60b89e9",
+      "name": "Generate Dataset ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-3808, 272]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\": \"accepted\", \"dataset_id\": \"{{ $json.dataset_id }}\", \"message\": \"CSV processing started\"}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "eaa7f274-3f54-4dae-b114-26e0143ed81b",
+      "name": "Respond 202 Accepted",
+      "typeVersion": 1.1,
+      "position": [-3584, 272]
+    },
+    {
+      "parameters": {
+        "tableId": "datasets",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "dataset_id",
+              "fieldValue": "={{ $json.dataset_id }}"
+            },
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $json.dataset_name }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "Propwire"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "PROCESSING"
+            },
+            {
+              "fieldId": "row_count",
+              "fieldValue": "=0"
+            },
+            {
+              "fieldId": "processed_count",
+              "fieldValue": "=0"
+            },
+            {
+              "fieldId": "error_count",
+              "fieldValue": "=0"
+            },
+            {
+              "fieldId": "source_hash",
+              "fieldValue": "={{ $json.source_hash }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $json.upload_timestamp }}"
+            },
+            {
+              "fieldId": "account_id",
+              "fieldValue": "={{ $json.account_id }}"
+            }
+          ]
+        }
+      },
+      "id": "1a3bf2bf-c39f-4a12-a1ea-8a98377b9b7d",
+      "name": "Supabase: Create Dataset",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-3360, 272],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Xd9lJUAZbDFcTCU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse CSV and normalize\nconst datasetInfo = $input.first().json;\nconst dataset_id = $('Generate Dataset ID').first().json.dataset_id;\nconst csvContent = $('Generate Dataset ID').first().json.csv_content;\nconst account_id = $('Generate Dataset ID').first().json.account_id;\n\nfunction parseCSV(csv) {\n  const lines = csv.trim().split('\\n');\n  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_'));\n  const rows = [];\n  \n  for (let i = 1; i < lines.length; i++) {\n    const values = lines[i].split(',');\n    const row = {};\n    headers.forEach((header, idx) => {\n      row[header] = values[idx]?.trim() || '';\n    });\n    rows.push(row);\n  }\n  \n  return { headers, rows };\n}\n\nconst columnMap = {\n  'property_address': ['address', 'property_address', 'street_address', 'street'],\n  'city': ['city'],\n  'state': ['state', 'st'],\n  'zip': ['zip', 'zipcode', 'postal_code', 'zip_code'],\n  'bedrooms': ['bedrooms', 'beds', 'bed', 'br'],\n  'bathrooms': ['bathrooms', 'baths', 'bath', 'ba'],\n  'sqft': ['sqft', 'square_feet', 'living_area', 'sq_ft'],\n  'lot_sqft': ['lot_sqft', 'lot_size'],\n  'year_built': ['year_built', 'yearbuilt'],\n  'list_price': ['list_price', 'price', 'asking_price'],\n  'mls_status': ['status', 'mls_status'],\n  'agent_name': ['agent_name', 'listing_agent', 'agent'],\n  'agent_email': ['agent_email', 'email'],\n  'agent_phone': ['agent_phone', 'phone']\n};\n\nfunction mapColumns(headers) {\n  const mapping = {};\n  Object.keys(columnMap).forEach(canonicalField => {\n    const possibleNames = columnMap[canonicalField];\n    const matchedHeader = headers.find(h => possibleNames.includes(h));\n    if (matchedHeader) {\n      mapping[canonicalField] = matchedHeader;\n    }\n  });\n  return mapping;\n}\n\nconst parsed = parseCSV(csvContent);\nconst mapping = mapColumns(parsed.headers);\n\nconst normalizedRows = parsed.rows.map((row, index) => {\n  const normalized = {\n    row_index: index + 1,\n    dataset_id: dataset_id,\n    account_id: account_id\n  };\n  \n  Object.keys(mapping).forEach(canonicalField => {\n    const sourceField = mapping[canonicalField];\n    normalized[canonicalField] = row[sourceField] || null;\n  });\n  \n  return normalized;\n});\n\nreturn [{\n  json: {\n    dataset_id,\n    account_id,\n    total_rows: normalizedRows.length,\n    normalized_rows: normalizedRows\n  }\n}];"
+      },
+      "id": "e7d42b51-6878-4046-9303-d21376e0b9ff",
+      "name": "Parse & Normalize CSV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-3152, 272]
+    },
+    {
+      "parameters": {
+        "batchSize": 100,
+        "options": {}
+      },
+      "id": "75582b9a-1e36-4681-b84b-4ec0acc34e2b",
+      "name": "Split Into Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-2928, 272]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst batchData = $input.first().json;\nconst rows = batchData.normalized_rows || [];\nconst dataset_id = batchData.dataset_id;\nconst account_id = batchData.account_id;\n\nfunction validateProperty(prop) {\n  const errors = [];\n  const warnings = [];\n  \n  if (!prop.property_address || prop.property_address.trim() === '') errors.push('Missing address');\n  if (!prop.city || prop.city.trim() === '') errors.push('Missing city');\n  if (!prop.state || prop.state.trim() === '') errors.push('Missing state');\n  if (!prop.zip || prop.zip.trim() === '') errors.push('Missing zip');\n  \n  if (prop.list_price && isNaN(parseFloat(prop.list_price))) {\n    errors.push('Invalid list_price');\n  }\n  \n  return { errors, warnings };\n}\n\nfunction normalizeProperty(prop) {\n  if (prop.property_address) {\n    prop.property_address = prop.property_address\n      .trim()\n      .split(' ')\n      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())\n      .join(' ');\n  }\n  \n  if (prop.city) {\n    prop.city = prop.city.trim()\n      .split(' ')\n      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())\n      .join(' ');\n  }\n  \n  if (prop.state) prop.state = prop.state.trim().toUpperCase().slice(0, 2);\n  if (prop.zip) prop.zip = prop.zip.trim().replace(/[^0-9]/g, '').slice(0, 5);\n  \n  prop.bedrooms = prop.bedrooms ? parseInt(prop.bedrooms) : null;\n  prop.bathrooms = prop.bathrooms ? parseFloat(prop.bathrooms) : null;\n  prop.sqft = prop.sqft ? parseInt(prop.sqft) : null;\n  prop.lot_sqft = prop.lot_sqft ? parseInt(prop.lot_sqft) : null;\n  prop.year_built = prop.year_built ? parseInt(prop.year_built) : null;\n  prop.list_price = prop.list_price ? parseFloat(prop.list_price) : null;\n  \n  if (prop.agent_name) {\n    const nameParts = prop.agent_name.trim().split(' ');\n    prop.agent_first = nameParts[0] || '';\n    prop.agent_last = nameParts.slice(1).join(' ') || '';\n  }\n  \n  return prop;\n}\n\nfunction generatePropertyId(prop, dataset_id) {\n  const addressSlug = `${prop.property_address}-${prop.zip}`\n    .toLowerCase()\n    .replace(/[^a-z0-9]/g, '-')\n    .replace(/-+/g, '-')\n    .slice(0, 40);\n  \n  const hash = crypto.createHash('sha256')\n    .update(`${prop.property_address}|${prop.zip}`)\n    .digest('hex')\n    .slice(0, 8);\n  \n  const datePrefix = dataset_id.split('-')[1].slice(4, 8);\n  return `DS${datePrefix}-${addressSlug}-${hash}`;\n}\n\nfunction generateSourceHash(prop) {\n  return crypto.createHash('sha256').update(JSON.stringify(prop)).digest('hex');\n}\n\nconst validProperties = [];\nconst rejectedProperties = [];\nconst seenIds = new Set();\n\nrows.forEach(prop => {\n  const validation = validateProperty(prop);\n  \n  if (validation.errors.length > 0) {\n    rejectedProperties.push({\n      ...prop,\n      rejection_reason: validation.errors.join('; ')\n    });\n  } else {\n    const normalized = normalizeProperty(prop);\n    const property_id = generatePropertyId(normalized, dataset_id);\n    \n    if (seenIds.has(property_id)) {\n      rejectedProperties.push({\n        ...normalized,\n        rejection_reason: 'Duplicate within batch'\n      });\n    } else {\n      seenIds.add(property_id);\n      validProperties.push({\n        property_id,\n        dataset_id,\n        account_id,\n        ...normalized,\n        source_hash: generateSourceHash(normalized),\n        status: 'READY_FOR_RESEARCH',\n        validation_notes: validation.warnings.join('; ') || null,\n        created_at: new Date().toISOString()\n      });\n    }\n  }\n});\n\nreturn [{\n  json: {\n    dataset_id,\n    account_id,\n    valid_properties: validProperties,\n    rejected_properties: rejectedProperties,\n    valid_count: validProperties.length,\n    rejected_count: rejectedProperties.length\n  }\n}];"
+      },
+      "id": "a19f65d5-f2d9-4d21-99fb-14c7ee6a319a",
+      "name": "Validate & Clean",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-2928, -96]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has_valid",
+              "leftValue": "={{ $json.valid_count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "984dc0b5-e7dc-4a2a-95b6-926100c33556",
+      "name": "Has Valid Properties?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-2704, -96]
+    },
+    {
+      "parameters": {
+        "jsCode": "const batchData = $input.first().json;\nconst properties = batchData.valid_properties || [];\n\nreturn properties.map(prop => ({\n  json: {\n    ...prop,\n    dataset_id: batchData.dataset_id,\n    account_id: batchData.account_id\n  }\n}));"
+      },
+      "id": "6331f665-b135-4a1f-99e0-5ee9bd91497e",
+      "name": "Expand Properties",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-2480, -112]
+    },
+    {
+      "parameters": {
+        "tableId": "properties",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "property_id",
+              "fieldValue": "={{ $json.property_id }}"
+            },
+            {
+              "fieldId": "dataset_id",
+              "fieldValue": "={{ $json.dataset_id }}"
+            },
+            {
+              "fieldId": "account_id",
+              "fieldValue": "={{ $json.account_id }}"
+            },
+            {
+              "fieldId": "address",
+              "fieldValue": "={{ $json.property_address }}"
+            },
+            {
+              "fieldId": "city",
+              "fieldValue": "={{ $json.city }}"
+            },
+            {
+              "fieldId": "state",
+              "fieldValue": "={{ $json.state }}"
+            },
+            {
+              "fieldId": "zip",
+              "fieldValue": "={{ $json.zip }}"
+            },
+            {
+              "fieldId": "bedrooms",
+              "fieldValue": "={{ $json.bedrooms }}"
+            },
+            {
+              "fieldId": "bathrooms",
+              "fieldValue": "={{ $json.bathrooms }}"
+            },
+            {
+              "fieldId": "sqft",
+              "fieldValue": "={{ $json.sqft }}"
+            },
+            {
+              "fieldId": "lot_sqft",
+              "fieldValue": "={{ $json.lot_sqft }}"
+            },
+            {
+              "fieldId": "year_built",
+              "fieldValue": "={{ $json.year_built }}"
+            },
+            {
+              "fieldId": "list_price",
+              "fieldValue": "={{ $json.list_price }}"
+            },
+            {
+              "fieldId": "mls_status",
+              "fieldValue": "={{ $json.mls_status }}"
+            },
+            {
+              "fieldId": "agent_first",
+              "fieldValue": "={{ $json.agent_first }}"
+            },
+            {
+              "fieldId": "agent_last",
+              "fieldValue": "={{ $json.agent_last }}"
+            },
+            {
+              "fieldId": "agent_email",
+              "fieldValue": "={{ $json.agent_email }}"
+            },
+            {
+              "fieldId": "agent_phone",
+              "fieldValue": "={{ $json.agent_phone }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "validation_notes",
+              "fieldValue": "={{ $json.validation_notes }}"
+            },
+            {
+              "fieldId": "source_hash",
+              "fieldValue": "={{ $json.source_hash }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $json.created_at }}"
+            }
+          ]
+        }
+      },
+      "id": "04d1965b-ee66-441f-9392-632cb508f10c",
+      "name": "Supabase: Insert Property",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-2272, -112],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Xd9lJUAZbDFcTCU5",
+          "name": "Supabase account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AGENT2_WEBHOOK_URL }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "property_id",
+              "value": "={{ $json.property_id }}"
+            },
+            {
+              "name": "dataset_id",
+              "value": "={{ $json.dataset_id }}"
+            },
+            {
+              "name": "account_id",
+              "value": "={{ $json.account_id }}"
+            },
+            {
+              "name": "address",
+              "value": "={{ $json.address }}"
+            },
+            {
+              "name": "city",
+              "value": "={{ $json.city }}"
+            },
+            {
+              "name": "state",
+              "value": "={{ $json.state }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "24cca180-5505-4c57-a548-0382721d1bdb",
+      "name": "Trigger Agent 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-2048, -112],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const validBatchData = $('Validate & Clean').all();\n\nlet totalProcessed = 0;\nlet totalRejected = 0;\nconst allRejections = [];\n\nvalidBatchData.forEach(batch => {\n  const data = batch.json;\n  totalProcessed += data.valid_count || 0;\n  totalRejected += data.rejected_count || 0;\n  \n  if (data.rejected_properties) {\n    allRejections.push(...data.rejected_properties);\n  }\n});\n\nconst datasetInfo = $('Generate Dataset ID').first().json;\n\nreturn [{\n  json: {\n    dataset_id: datasetInfo.dataset_id,\n    dataset_name: datasetInfo.dataset_name,\n    account_id: datasetInfo.account_id,\n    total_rows: totalProcessed + totalRejected,\n    processed_count: totalProcessed,\n    rejected_count: totalRejected,\n    success_rate: ((totalProcessed / (totalProcessed + totalRejected)) * 100).toFixed(1),\n    rejected_properties: allRejections\n  }\n}];"
+      },
+      "id": "4bc4816b-5a91-4199-a967-1ee06e123f54",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-2640, 288]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "datasets",
+        "filterType": "string",
+        "filterString": "dataset_id=eq.{{ $json.dataset_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "DONE"
+            },
+            {
+              "fieldId": "processed_count",
+              "fieldValue": "={{ $json.processed_count }}"
+            },
+            {
+              "fieldId": "error_count",
+              "fieldValue": "={{ $json.rejected_count }}"
+            },
+            {
+              "fieldId": "row_count",
+              "fieldValue": "={{ $json.total_rows }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "0db60b76-db25-4bdb-a24c-81418448a7c5",
+      "name": "Supabase: Update Dataset",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-2432, 288],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Xd9lJUAZbDFcTCU5",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=✅ Pipeline Scout Complete: {{ $json.dataset_name }}"
+            },
+            {
+              "name": "blocks",
+              "value": "=[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*Dataset:* {{ $json.dataset_id }}\\n*Account:* {{ $json.account_id }}\\n*Processed:* {{ $json.processed_count }}\\n*Rejected:* {{ $json.rejected_count }}\\n*Success Rate:* {{ $json.success_rate }}%\"}}]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1152818c-9243-44be-865f-c8b942916666",
+      "name": "Send Slack Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-2208, 288],
+      "continueOnFail": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Upload": {
+      "main": [
+        [
+          {
+            "node": "Generate Dataset ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Dataset ID": {
+      "main": [
+        [
+          {
+            "node": "Respond 202 Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 202 Accepted": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Create Dataset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Create Dataset": {
+      "main": [
+        [
+          {
+            "node": "Parse & Normalize CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Normalize CSV": {
+      "main": [
+        [
+          {
+            "node": "Split Into Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Batches": {
+      "main": [
+        [
+          {
+            "node": "Validate & Clean",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Clean": {
+      "main": [
+        [
+          {
+            "node": "Has Valid Properties?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Valid Properties?": {
+      "main": [
+        [
+          {
+            "node": "Expand Properties",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Into Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Properties": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insert Property",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Insert Property": {
+      "main": [
+        [
+          {
+            "node": "Trigger Agent 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Agent 2": {
+      "main": [
+        [
+          {
+            "node": "Split Into Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Update Dataset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Update Dataset": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "secure-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "70d8206dea5d035dc95686476ac103a235fd1bc0b07e8eabcbaf0f5b545f170f"
+  },
+  "id": "QHuJ2LOYS2wEqTaD",
+  "tags": [
+    {
+      "id": "KOTv2Hk2uEpfond4",
+      "name": "Pipeline Scout"
+    }
+  ]
+}

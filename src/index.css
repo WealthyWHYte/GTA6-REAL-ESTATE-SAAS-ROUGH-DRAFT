@@ -1,0 +1,248 @@
+/* GTA 6 Vice City Theme - Real Estate Acquisition System */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+@layer base {
+  :root {
+    /* GTA Vice City Color Palette */
+    --background: 240 6% 8%;
+    --foreground: 60 100% 95%;
+
+    --card: 240 8% 12%;
+    --card-foreground: 60 100% 95%;
+
+    --popover: 240 8% 12%;
+    --popover-foreground: 60 100% 95%;
+
+    /* Neon Primary - Vice City Pink/Magenta */
+    --primary: 300 100% 50%;
+    --primary-foreground: 240 6% 8%;
+
+    /* Neon Secondary - Vice City Cyan */
+    --secondary: 180 100% 50%;
+    --secondary-foreground: 240 6% 8%;
+
+    /* Muted tones */
+    --muted: 240 8% 16%;
+    --muted-foreground: 240 5% 65%;
+
+    /* Accent - Vice City Orange */
+    --accent: 30 100% 60%;
+    --accent-foreground: 240 6% 8%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 60 100% 95%;
+
+    --border: 240 12% 20%;
+    --input: 240 12% 16%;
+    --ring: 300 100% 50%;
+
+    --radius: 0.75rem;
+
+    /* GTA Theme Colors */
+    --vice-pink: 300 100% 50%;
+    --vice-cyan: 180 100% 50%;
+    --vice-orange: 30 100% 60%;
+    --vice-purple: 270 100% 40%;
+    --vice-yellow: 50 100% 70%;
+    --neon-green: 120 100% 50%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--vice-pink)), hsl(var(--vice-purple)));
+    --gradient-secondary: linear-gradient(135deg, hsl(var(--vice-cyan)), hsl(var(--secondary)));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--vice-orange)), hsl(var(--vice-yellow)));
+    --gradient-neon: linear-gradient(45deg, hsl(var(--vice-pink)), hsl(var(--vice-cyan)), hsl(var(--vice-orange)));
+    --gradient-loading: linear-gradient(90deg, hsl(var(--vice-orange)), hsl(var(--vice-pink)));
+    
+    /* Shadows */
+    --shadow-neon-pink: 0 0 20px hsl(var(--vice-pink) / 0.5);
+    --shadow-neon-cyan: 0 0 20px hsl(var(--vice-cyan) / 0.5);
+    --shadow-neon-orange: 0 0 20px hsl(var(--vice-orange) / 0.5);
+    --shadow-glow: 0 0 40px hsl(var(--primary) / 0.3);
+    
+    /* Typography */
+    --font-gta: 'Orbitron', monospace;
+    --font-body: 'Exo 2', sans-serif;
+    
+    /* Animations */
+    --transition-neon: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --glow-pulse: glow-pulse 2s ease-in-out infinite alternate;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Dark mode uses same Vice City theme */
+    --background: 240 6% 8%;
+    --foreground: 60 100% 95%;
+    --card: 240 8% 12%;
+    --card-foreground: 60 100% 95%;
+    --popover: 240 8% 12%;
+    --popover-foreground: 60 100% 95%;
+    --primary: 300 100% 50%;
+    --primary-foreground: 240 6% 8%;
+    --secondary: 180 100% 50%;
+    --secondary-foreground: 240 6% 8%;
+    --muted: 240 8% 16%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 30 100% 60%;
+    --accent-foreground: 240 6% 8%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 60 100% 95%;
+    --border: 240 12% 20%;
+    --input: 240 12% 16%;
+    --ring: 300 100% 50%;
+    --sidebar-background: 240 8% 10%;
+    --sidebar-foreground: 60 100% 95%;
+    --sidebar-primary: 300 100% 50%;
+    --sidebar-primary-foreground: 240 6% 8%;
+    --sidebar-accent: 240 12% 14%;
+    --sidebar-accent-foreground: 60 100% 95%;
+    --sidebar-border: 240 12% 20%;
+    --sidebar-ring: 300 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-gta);
+    font-weight: 700;
+  }
+}
+
+@layer components {
+  /* GTA Loading Bar */
+  .gta-loading-bar {
+    @apply relative h-6 bg-[hsl(var(--vice-orange))] border-4 border-[hsl(var(--vice-purple))] rounded-none overflow-hidden;
+  }
+  
+  .gta-loading-progress {
+    @apply h-full bg-gradient-to-r from-[hsl(var(--vice-pink))] to-[hsl(var(--vice-purple))] transition-all duration-300;
+  }
+/* Add at the end of your index.css */
+
+  .gta-text-shadow {
+  text-shadow: 
+    0 0 10px currentColor,
+    0 0 20px currentColor,
+    2px 2px 4px rgba(0, 0, 0, 0.8);
+  }
+
+  .shadow-neon-yellow {
+  box-shadow: 
+    0 0 20px rgba(255, 215, 0, 0.3),
+    0 4px 8px rgba(0, 0, 0, 0.5);
+  }
+  /* Neon Button Variants */
+  .btn-neon-pink {
+    @apply bg-transparent border-2 border-[hsl(var(--vice-pink))] text-[hsl(var(--vice-pink))] hover:bg-[hsl(var(--vice-pink))] hover:text-background transition-all duration-300;
+    box-shadow: var(--shadow-neon-pink);
+    text-shadow: 0 0 10px hsl(var(--vice-pink) / 0.8);
+  }
+  
+  .btn-neon-cyan {
+    @apply bg-transparent border-2 border-[hsl(var(--vice-cyan))] text-[hsl(var(--vice-cyan))] hover:bg-[hsl(var(--vice-cyan))] hover:text-background transition-all duration-300;
+    box-shadow: var(--shadow-neon-cyan);
+    text-shadow: 0 0 10px hsl(var(--vice-cyan) / 0.8);
+  }
+
+  .btn-neon-orange {
+    @apply bg-transparent border-2 border-[hsl(var(--vice-orange))] text-[hsl(var(--vice-orange))] hover:bg-[hsl(var(--vice-orange))] hover:text-background transition-all duration-300;
+    box-shadow: var(--shadow-neon-orange);
+    text-shadow: 0 0 10px hsl(var(--vice-orange) / 0.8);
+  }
+
+  /* Mission Card */
+  .mission-card {
+    @apply bg-card border border-[hsl(var(--vice-pink))] rounded-lg p-6 relative overflow-hidden;
+    background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--card)) 100%);
+    box-shadow: 0 0 30px hsl(var(--vice-pink) / 0.2);
+  }
+
+  .mission-card::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-[hsl(var(--vice-pink)/0.1)] to-transparent;
+    animation: scan 3s linear infinite;
+  }
+
+  /* Agent Card */
+  .agent-card {
+    @apply bg-card border border-[hsl(var(--vice-cyan))] rounded-lg p-4 hover:scale-105 transition-all duration-300;
+    box-shadow: 0 0 20px hsl(var(--vice-cyan) / 0.3);
+  }
+
+  /* Stats Display */
+  .stat-display {
+    @apply bg-muted border border-[hsl(var(--vice-orange))] rounded p-3 text-center;
+    box-shadow: inset 0 0 20px hsl(var(--vice-orange) / 0.2);
+  }
+
+  /* Wanted Level Stars */
+  .wanted-star {
+    @apply inline-block w-6 h-6 text-[hsl(var(--vice-yellow))] drop-shadow-lg;
+    filter: drop-shadow(0 0 5px hsl(var(--vice-yellow) / 0.8));
+  }
+
+  /* Neon Text */
+  .neon-text {
+    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
+  }
+
+  /* Scan Animation */
+  @keyframes scan {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  
+  /* Glow Pulse */
+  @keyframes glow-pulse {
+    0% { box-shadow: 0 0 20px hsl(var(--vice-pink) / 0.5); }
+    100% { box-shadow: 0 0 40px hsl(var(--vice-pink) / 0.8), 0 0 60px hsl(var(--vice-cyan) / 0.3); }
+  }
+
+  /* Typewriter Effect */
+  @keyframes typewriter {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+
+  .typewriter {
+    overflow: hidden;
+    border-right: 2px solid hsl(var(--vice-pink));
+    white-space: nowrap;
+    animation: typewriter 2s steps(40, end), blink-caret 0.75s step-end infinite;
+  }
+
+  @keyframes blink-caret {
+    from, to { border-color: transparent; }
+    50% { border-color: hsl(var(--vice-pink)); }
+  }
+}
