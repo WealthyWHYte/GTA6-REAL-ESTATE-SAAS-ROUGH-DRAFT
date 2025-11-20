@@ -19,7 +19,8 @@ import CommandCenter from "@/components/CommandCenter";
 import MissionBriefingPage from "./pages/mission-briefing";
 import MissionControlPage from "./pages/mission-control";
 import CountdownPage from "./pages/countdown";
-import WaitlistPage from "./pages/waitlist";
+import SignupPage from "./pages/signup";
+import ComingSoonPage from "./pages/coming-soon";
 import DeployOffersPage from "./pages/deploy-offers";
 import GenerateContractsPage from "./pages/generate-contracts";
 import FollowUpQueuePage from "./pages/follow-up-queue";
@@ -81,9 +82,9 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<WaitlistPage />} />
+          <Route path="/" element={<CountdownPage />} />
           <Route path="/countdown" element={<CountdownPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/signup" element={<SignupPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/black-market" element={<BlackMarketPage />} />
           <Route path="/black-market/:id" element={<DealDetailPage />} />

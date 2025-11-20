@@ -1,24 +1,55 @@
-# GTA6 Real Estate SaaS - Critical Fixes & New Features
+# GTA 6 Real Estate SaaS - Implementation Plan
 
 ## ✅ COMPLETED TASKS
-- [x] Analyze codebase and identify issues
-- [x] Create comprehensive implementation plan
-- [x] Get user approval for plan
-- [x] Fix countdown date display (November 19, 2026)
-- [x] Add ProgressBar component between timer and gallery
-- [x] Create waitlist.tsx page with GTA-themed design
-- [x] Add waitlist form with required fields (Name, Email, Telegram, Discord, Xbox, PSN, Steam)
-- [x] Implement Supabase integration for waitlist submissions
-- [x] Update App.tsx routing (waitlist first, then countdown)
-- [x] Build project successfully without errors
+- [x] Analyze current codebase structure
+- [x] Understand user flow requirements
+- [x] Plan implementation steps
 
-## 🔄 IN PROGRESS TASKS
+## 🔄 CURRENT TASKS
 
-## 📋 PENDING TASKS
-- [ ] Test countdown date accuracy
-- [ ] Test ProgressBar visibility
-- [ ] Test waitlist form submission and navigation
-- [ ] Verify responsive design on all devices
+### ISSUE #1: CORRECT USER FLOW
+- [ ] Update App.tsx routes:
+  - "/" → CountdownPage (public)
+  - "/signup" → SignupPage (rename from waitlist)
+  - "/login" → LoginPage (existing)
+  - "/coming-soon" → ComingSoonPage (create new)
+- [ ] Update countdown.tsx button logic for user existence check
+- [ ] Rename waitlist.tsx to signup.tsx
+- [ ] Create coming-soon.tsx placeholder page
 
-## 🎯 CURRENT STATUS
-All implementation completed successfully. Project builds without errors. Ready for testing.
+### ISSUE #2: LOADING BAR ENHANCEMENTS
+- [ ] Update ProgressBar.tsx:
+  - Add real progress calculation (announcement to release)
+  - Add date milestones on bar
+  - Make "ANNOUNCEMENT" clickable to GTA 6 trailer
+  - Add hover effects
+
+### ISSUE #3: ADD MARKET SCOUT AGENT
+- [ ] Update MissionBriefing.tsx:
+  - Add Market Scout between Pipeline Scout and Underwriter
+  - Update agent description and icon
+- [ ] Update CommandCenter.tsx:
+  - Add Market Scout agent card
+  - Add map interface with Google Maps/Mapbox
+  - Add live AI actions display
+  - Show property research status
+
+### ISSUE #4: MOBILE RESPONSIVE
+- [ ] Add responsive classes (sm:, md:, lg:) to all components
+- [ ] Stack elements vertically on mobile
+- [ ] Adjust font sizes for small screens
+- [ ] Touch-friendly buttons (min 44px height)
+- [ ] Test on 375px, 768px, 1024px widths
+
+## 🧪 TESTING CHECKLIST
+- [ ] Test complete user flow: countdown → signup → login → coming-soon
+- [ ] Test existing user flow: countdown → login (skip signup)
+- [ ] Test progress bar clickable announcement link
+- [ ] Test Market Scout in mission briefing
+- [ ] Test Command Center with map and live actions
+- [ ] Test mobile responsiveness on all pages
+
+## 🚀 DEPLOYMENT
+- [ ] Test locally before pushing
+- [ ] Push to GitHub
+- [ ] Verify deployment works
