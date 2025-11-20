@@ -6,14 +6,15 @@ interface ProgressBarProps {
 }
 
 export const ProgressBar = ({ className }: ProgressBarProps) => {
-  const [progress, setProgress] = useState(0);
+  // Calculate real progress
+  const announcementDate = new Date('2024-01-01')
+  const releaseDate = new Date('2026-11-19')
+  const today = new Date()
+  const totalDays = (releaseDate - announcementDate) / (1000 * 60 * 60 * 24)
+  const daysPassed = (today - announcementDate) / (1000 * 60 * 60 * 24)
+  const progress = (daysPassed / totalDays) * 100
+
   const [loadingText, setLoadingText] = useState('LOADING VICE CITY...');
-
-  // GTA 6 Release Date: November 19, 2026, 12:00 AM EST (5:00 AM UTC)
-  const releaseDate = new Date('2026-11-19T05:00:00Z');
-
-  // GTA 6 Announcement Date: January 1, 2024 (for progress calculation)
-  const announcementDate = new Date('2024-01-01T00:00:00Z');
 
   // Loading text variations
   const loadingTexts = [
@@ -26,21 +27,6 @@ export const ProgressBar = ({ className }: ProgressBarProps) => {
   ];
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      const difference = releaseDate.getTime() - now.getTime();
-
-      if (difference > 0) {
-        // Calculate progress percentage
-        const totalTime = releaseDate.getTime() - announcementDate.getTime();
-        const elapsedTime = now.getTime() - announcementDate.getTime();
-        const progressPercent = Math.min(100, Math.max(0, (elapsedTime / totalTime) * 100));
-        setProgress(progressPercent);
-      } else {
-        setProgress(100);
-      }
-    }, 1000);
-
     // Rotate loading text every 3 seconds
     const textTimer = setInterval(() => {
       setLoadingText(prev => {
@@ -50,7 +36,6 @@ export const ProgressBar = ({ className }: ProgressBarProps) => {
     }, 3000);
 
     return () => {
-      clearInterval(timer);
       clearInterval(textTimer);
     };
   }, []);
@@ -137,6 +122,24 @@ export const ProgressBar = ({ className }: ProgressBarProps) => {
           </div>
         </div>
       </motion.div>
+
+      {/* Date Labels Row */}
+      <div className="flex justify-between items-center mb-4 px-4">
+        {/* Left: Clickable Announcement */}
+        <a
+          href="https://youtu.be/QdBZY2fkU-0?si=RGVv-tIpbXvtUW5q"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs md:text-sm text-purple-400 hover:text-pink-400 transition-colors cursor-pointer underline font-gta"
+        >
+          📺 ANNOUNCEMENT: JAN 1, 2024
+        </a>
+
+        {/* Right: Release Date */}
+        <div className="text-xs md:text-sm text-purple-400 font-gta">
+          🎮 RELEASE: NOV 19, 2026
+        </div>
+      </div>
 
       {/* Percentage Text */}
       <motion.div

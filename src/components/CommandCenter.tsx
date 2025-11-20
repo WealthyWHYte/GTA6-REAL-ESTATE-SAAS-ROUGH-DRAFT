@@ -91,7 +91,7 @@ const CommandCenter = () => {
         </div>
 
         {/* Agent Status */}
-        <div className="grid grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-6 gap-4 mb-8">
           {agents.map((agent) => (
             <Card
               key={agent.id}
@@ -124,6 +124,80 @@ const CommandCenter = () => {
 
         {/* Live Mission Stats */}
         <LiveMissionStats />
+
+        {/* Market Scout Live Activity */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="font-gta text-vice-cyan flex items-center gap-2">
+              🔍 MARKET SCOUT - LIVE ACTIVITY
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Live Status */}
+              <div className="flex items-center gap-4 p-4 bg-muted rounded-lg border border-vice-cyan/20">
+                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                <div className="flex-1">
+                  <p className="text-sm font-gta text-vice-cyan">
+                    Researching comps for 123 Ocean Drive, Miami Beach, FL...
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    🔍 Searching for comparable sales...
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Cards */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="text-center p-4 bg-black/20 rounded-lg border">
+                  <div className="text-2xl mb-2">📊</div>
+                  <p className="text-sm font-gta">Analyzing Property Values</p>
+                  <p className="text-xs text-muted-foreground">Zillow, Redfin, Realtor</p>
+                </div>
+                <div className="text-center p-4 bg-black/20 rounded-lg border">
+                  <div className="text-2xl mb-2">💰</div>
+                  <p className="text-sm font-gta">Calculating ARV</p>
+                  <p className="text-xs text-muted-foreground">Rental rates & trends</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Map Interface Placeholder */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="font-gta text-vice-pink">
+              🗺️ PROPERTY MAP - LIVE TRACKING
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="aspect-video bg-muted/20 rounded-lg border flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <div className="text-6xl">🗺️</div>
+                <p className="text-vice-cyan font-gta">Interactive Property Map</p>
+                <p className="text-sm text-muted-foreground">
+                  Real-time tracking of properties being researched<br/>
+                  Color-coded by status
+                </p>
+                <div className="flex justify-center gap-4 mt-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <span className="text-xs">Researching</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span className="text-xs">Complete</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                    <span className="text-xs">Offers Sent</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Quick Actions */}
         <Card className="mission-card mb-6">

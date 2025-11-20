@@ -448,14 +448,14 @@ export default function CountdownPage() {
             </p>
 
             <div className="flex flex-wrap gap-4 justify-center">
-              <Button
-                variant="neon-pink"
-                size="lg"
-                className="text-lg px-8"
-                onClick={() => navigate("/waitlist")}
-              >
-                💼 BUILD YOUR REAL ESTATE EMPIRE - Create your heist account →
-              </Button>
+            <Button
+              variant="neon-pink"
+              size="lg"
+              className="text-lg px-8"
+              onClick={() => navigate("/signup")}
+            >
+              💼 BUILD YOUR REAL ESTATE EMPIRE
+            </Button>
 
               <Button
                 variant="outline"
@@ -507,7 +507,4 @@ export default function CountdownPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
-    </div>
-  );
-}
+        </div>

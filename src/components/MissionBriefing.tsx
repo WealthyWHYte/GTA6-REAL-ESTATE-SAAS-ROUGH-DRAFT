@@ -50,11 +50,11 @@ const MissionBriefing = ({ onStartMission }: MissionBriefingProps) => {
           <div className="grid md:grid-cols-6 gap-6">
             {[
               { name: "PIPELINE SCOUT", specialty: "Data processing & opportunity identification", mission: "Find the needles in the haystack", route: "/agent/pipeline-scout" },
+              { name: "MARKET SCOUT", specialty: "Market research, comps, ARV calculation", mission: "Conduct deep market analysis", route: "/agent/market-scout" },
               { name: "UNDERWRITER", specialty: "Deal vetting & creative finance analysis", mission: "Separate gold from garbage", route: "/agent/underwriter" },
               { name: "OFFER GENERATOR", specialty: "Personalized offer creation", mission: "Craft irresistible proposals", route: "/agent/offer-generator" },
               { name: "CONTRACT SPECIALIST", specialty: "Legal document generation", mission: "Bulletproof agreement creation", route: "/agent/contract-specialist" },
-              { name: "EMAIL CLOSER", specialty: "Negotiation & relationship management", mission: "Close deals through communication", route: "/agent/email-closer" },
-              { name: "MARKET RESEARCHER", specialty: "Market analysis & comps research", mission: "Know the market inside out", route: "/agent/market-researcher" }
+              { name: "EMAIL CLOSER", specialty: "Negotiation & relationship management", mission: "Close deals through communication", route: "/agent/email-closer" }
             ].map((agent, index) => (
               <div
                 key={index}
