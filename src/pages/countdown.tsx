@@ -39,6 +39,11 @@ export default function CountdownPage() {
 
   // GTA 6 Release Date: November 19, 2026, 12:00 AM EST (5:00 AM UTC)
   const releaseDate = new Date('2026-11-19T05:00:00Z');
+  const formattedReleaseDate = releaseDate.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).toUpperCase();
 
   // GTA 6 Announcement Date: January 1, 2024 (for progress calculation)
   const announcementDate = new Date('2024-01-01T00:00:00Z');
@@ -218,7 +223,7 @@ export default function CountdownPage() {
           </h1>
           <div className="flex items-center justify-center gap-2 text-vice-cyan text-xl mb-8">
             <Calendar className="w-6 h-6" />
-            <span>DECEMBER 10, 2025</span>
+            <span>{formattedReleaseDate}</span>
           </div>
         </div>
 
@@ -258,6 +263,9 @@ export default function CountdownPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* GTA-Style Loading Bar */}
+        <ProgressBar className="mb-12" />
 
         {/* Community Art Gallery */}
         <Card className="mission-card mb-12">
