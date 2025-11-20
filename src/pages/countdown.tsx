@@ -214,14 +214,28 @@ export default function CountdownPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto">
+    <div
+      className="min-h-screen relative overflow-hidden"
+      style={{
+        backgroundImage: 'url(/wholesalionaire-bg.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Add dark overlay for better text readability */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+
+      {/* Content */}
+      <div className="relative z-10 p-6">
+        <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-6xl font-gta font-black text-transparent bg-gradient-neon bg-clip-text mb-4">
+          <h1 className="text-6xl font-gta font-black text-transparent bg-gradient-neon bg-clip-text mb-4 drop-shadow-2xl">
             GTA 6 COUNTDOWN
           </h1>
-          <div className="flex items-center justify-center gap-2 text-vice-cyan text-xl mb-8">
+          <div className="flex items-center justify-center gap-2 text-vice-cyan text-xl mb-8 drop-shadow-lg">
             <Calendar className="w-6 h-6" />
             <span>{formattedReleaseDate}</span>
           </div>
@@ -508,3 +522,7 @@ export default function CountdownPage() {
           </CardContent>
         </Card>
         </div>
+      </div>
+    </div>
+  );
+}
