@@ -26,14 +26,18 @@ export default function WaitlistPage() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
+    operativeCodename: '',
+    organization: '',
     email: '',
+    accessCode: '',
     telegram: '',
     discord: '',
     xbox: '',
     playstation: '',
     steam: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState(0);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -48,17 +52,47 @@ export default function WaitlistPage() {
 
     try {
       // Validate required fields
-      if (!formData.name.trim() || !formData.email.trim()) {
-        toast.error("Name and email are required!");
+      if (!formData.operativeCodename.trim() || !formData.email.trim() || !formData.accessCode.trim()) {
+        toast.error("Operative Codename, Secure Email, and Access Code are required!");
         return;
       }
 
-      // Submit to Supabase
-      const { error } = await supabase
-        .from('waitlist')
+      if (passwordStrength < 75) {
+        toast.error("Access Code must be strong (8+ chars, uppercase, lowercase, number)!");
+        return;
+      }
+
+      // Create account with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email.trim(),
+        password: formData.accessCode.trim(),
+        options: {
+          data: {
+            operative_codename: formData.operativeCodename.trim(),
+            organization: formData.organization.trim() || null,
+            telegram_username: formData.telegram.trim() || null,
+            discord_username: formData.discord.trim() || null,
+            xbox_gamertag: formData.xbox.trim() || null,
+            playstation_psn: formData.playstation.trim() || null,
+            steam_name: formData.steam.trim() || null,
+          }
+        }
+      });
+
+      if (authError) {
+        console.error('Auth error:', authError);
+        toast.error(authError.message || "Failed to create account. Please try again.");
+        return;
+      }
+
+      // Store additional data in accounts table
+      const { error: profileError } = await supabase
+        .from('accounts')
         .insert([{
-          name: formData.name.trim(),
+          id: authData.user?.id,
           email: formData.email.trim(),
+          display_name: formData.operativeCodename.trim(),
+          company_name: formData.organization.trim() || null,
           telegram_username: formData.telegram.trim() || null,
           discord_username: formData.discord.trim() || null,
           xbox_gamertag: formData.xbox.trim() || null,
@@ -67,19 +101,18 @@ export default function WaitlistPage() {
           created_at: new Date().toISOString()
         }]);
 
-      if (error) {
-        console.error('Supabase error:', error);
-        toast.error("Failed to join waitlist. Please try again.");
-        return;
+      if (profileError) {
+        console.error('Profile error:', profileError);
+        // Don't fail the whole process for profile errors
       }
 
-      toast.success("🎮 Welcome to the crew! Redirecting to countdown...");
+      toast.success("🎭 Account created! Welcome to the heist crew!");
       setTimeout(() => {
         navigate('/countdown');
       }, 2000);
 
     } catch (error) {
-      console.error('Error submitting form:', error);
+      console.error('Error creating account:', error);
       toast.error("Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -145,9 +178,9 @@ export default function WaitlistPage() {
             </div>
 
             <p className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed">
-              Join the exclusive community of investors positioning themselves in
-              <span className="text-cyan-400 font-bold"> South Florida real estate </span>
-              before Grand Theft Auto 6 transforms the market forever.
+              Join the crew building real estate empires before GTA 6 drops.
+              <span className="text-cyan-400 font-bold"> Create your operative profile </span>
+              and get ready for the ultimate heist.
             </p>
           </div>
 
@@ -177,9 +210,9 @@ export default function WaitlistPage() {
               {/* Stats */}
               <Card className="bg-black/50 border border-pink-400/30 backdrop-blur-sm">
                 <CardHeader>
-                  <CardTitle className="text-center text-xl font-gta text-pink-400">
-                    📊 MARKET OPPORTUNITY
-                  </CardTitle>
+                <CardTitle className="text-center text-xl font-gta text-pink-400">
+                  🎯 HEIST OPPORTUNITY
+                </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4 text-center">
@@ -201,7 +234,7 @@ export default function WaitlistPage() {
               <CardHeader>
                 <CardTitle className="text-center text-2xl font-gta text-purple-400 flex items-center justify-center gap-2">
                   <Users className="w-6 h-6" />
-                  JOIN THE CREW
+                  CREATE YOUR HEIST ACCOUNT
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -209,25 +242,40 @@ export default function WaitlistPage() {
                   {/* Required Fields */}
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="name" className="text-cyan-400 font-gta flex items-center gap-2">
+                      <Label htmlFor="operativeCodename" className="text-cyan-400 font-gta flex items-center gap-2">
                         <User className="w-4 h-4" />
-                        FULL NAME *
+                        🎭 OPERATIVE CODENAME *
                       </Label>
                       <Input
-                        id="name"
+                        id="operativeCodename"
                         type="text"
-                        value={formData.name}
-                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        value={formData.operativeCodename}
+                        onChange={(e) => handleInputChange('operativeCodename', e.target.value)}
                         className="bg-gray-900/50 border-cyan-400/50 text-white placeholder-gray-400 focus:border-cyan-400"
-                        placeholder="Enter your full name..."
+                        placeholder="Your secret agent name..."
                         required
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="organization" className="text-cyan-400 font-gta flex items-center gap-2">
+                        <Building2 className="w-4 h-4" />
+                        🏢 ORGANIZATION
+                      </Label>
+                      <Input
+                        id="organization"
+                        type="text"
+                        value={formData.organization}
+                        onChange={(e) => handleInputChange('organization', e.target.value)}
+                        className="bg-gray-900/50 border-cyan-400/50 text-white placeholder-gray-400 focus:border-cyan-400"
+                        placeholder="Your company or team (optional)..."
                       />
                     </div>
 
                     <div>
                       <Label htmlFor="email" className="text-cyan-400 font-gta flex items-center gap-2">
                         <Mail className="w-4 h-4" />
-                        EMAIL ADDRESS *
+                        📧 SECURE EMAIL *
                       </Label>
                       <Input
                         id="email"
@@ -238,6 +286,60 @@ export default function WaitlistPage() {
                         placeholder="your@email.com"
                         required
                       />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="accessCode" className="text-cyan-400 font-gta flex items-center gap-2">
+                        <Hash className="w-4 h-4" />
+                        🔐 ACCESS CODE *
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="accessCode"
+                          type={showPassword ? "text" : "password"}
+                          value={formData.accessCode}
+                          onChange={(e) => {
+                            handleInputChange('accessCode', e.target.value);
+                            // Calculate password strength
+                            const password = e.target.value;
+                            let strength = 0;
+                            if (password.length >= 8) strength += 25;
+                            if (/[A-Z]/.test(password)) strength += 25;
+                            if (/[a-z]/.test(password)) strength += 25;
+                            if (/[0-9]/.test(password)) strength += 25;
+                            setPasswordStrength(strength);
+                          }}
+                          className="bg-gray-900/50 border-cyan-400/50 text-white placeholder-gray-400 focus:border-cyan-400 pr-10"
+                          placeholder="Create a strong password..."
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-cyan-400"
+                        >
+                          {showPassword ? "🙈" : "👁️"}
+                        </button>
+                      </div>
+                      {formData.accessCode && (
+                        <div className="mt-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-gray-700 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full transition-all duration-300 ${
+                                  passwordStrength < 50 ? 'bg-red-500' :
+                                  passwordStrength < 75 ? 'bg-yellow-500' : 'bg-green-500'
+                                }`}
+                                style={{ width: `${passwordStrength}%` }}
+                              ></div>
+                            </div>
+                            <span className="text-xs text-gray-400">
+                              {passwordStrength < 50 ? 'Weak' :
+                               passwordStrength < 75 ? 'Good' : 'Strong'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -329,12 +431,12 @@ export default function WaitlistPage() {
                     {isSubmitting ? (
                       <div className="flex items-center gap-2">
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        JOINING CREW...
+                        CREATING ACCOUNT...
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
                         <Send className="w-5 h-5" />
-                        🚀 JOIN THE MISSION
+                        🎭 CREATE YOUR HEIST ACCOUNT
                       </div>
                     )}
                   </Button>

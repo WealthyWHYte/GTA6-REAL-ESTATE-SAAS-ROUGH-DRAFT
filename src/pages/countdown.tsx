@@ -302,7 +302,7 @@ export default function CountdownPage() {
                     </span>
                   </div>
                 </div>
-                <div className="flex justify-center gap-4">
+                <div className="flex justify-center gap-4 mb-6">
                   <Button
                     variant="outline"
                     size="sm"
@@ -322,6 +322,61 @@ export default function CountdownPage() {
                     COMMENT
                   </Button>
                 </div>
+
+                {/* Upload Art Button - Moved here */}
+                <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="neon-orange" size="lg" className="mb-4">
+                      <Upload className="mr-2 w-5 h-5" />
+                      📤 UPLOAD YOUR ART
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="text-center font-gta text-vice-orange">
+                        📤 UPLOAD FAN ART
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="border-2 border-dashed border-vice-cyan rounded-lg p-8 text-center">
+                        <Upload className="w-12 h-12 mx-auto mb-4 text-vice-cyan opacity-50" />
+                        <p className="text-sm text-muted-foreground">Drag & Drop Image Here</p>
+                        <p className="text-xs text-muted-foreground">or click to browse</p>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="title">Title</Label>
+                          <Input id="title" placeholder="Your artwork title..." />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="artist">Your Name</Label>
+                          <Input id="artist" placeholder="@username" />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="description">Description</Label>
+                          <Textarea id="description" placeholder="Tell us about your artwork..." />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="tags">Tags</Label>
+                          <Input id="tags" placeholder="GTA6, ViceCity, + Add more" />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <Button variant="neon-cyan" className="flex-1">
+                          🚀 UPLOAD
+                        </Button>
+                        <Button variant="outline" onClick={() => setUploadModalOpen(false)} className="flex-1">
+                          ❌ CANCEL
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           </CardContent>
@@ -344,60 +399,7 @@ export default function CountdownPage() {
           ))}
         </div>
 
-        {/* Upload Art Modal */}
-        <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
-          <DialogTrigger asChild>
-            <Button variant="neon-orange" size="lg" className="mb-8">
-              <Upload className="mr-2 w-5 h-5" />
-              📤 UPLOAD YOUR ART
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-center font-gta text-vice-orange">
-                📤 UPLOAD FAN ART
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="border-2 border-dashed border-vice-cyan rounded-lg p-8 text-center">
-                <Upload className="w-12 h-12 mx-auto mb-4 text-vice-cyan opacity-50" />
-                <p className="text-sm text-muted-foreground">Drag & Drop Image Here</p>
-                <p className="text-xs text-muted-foreground">or click to browse</p>
-              </div>
 
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="title">Title</Label>
-                  <Input id="title" placeholder="Your artwork title..." />
-                </div>
-
-                <div>
-                  <Label htmlFor="artist">Your Name</Label>
-                  <Input id="artist" placeholder="@username" />
-                </div>
-
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea id="description" placeholder="Tell us about your artwork..." />
-                </div>
-
-                <div>
-                  <Label htmlFor="tags">Tags</Label>
-                  <Input id="tags" placeholder="GTA6, ViceCity, + Add more" />
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <Button variant="neon-cyan" className="flex-1">
-                  🚀 UPLOAD
-                </Button>
-                <Button variant="outline" onClick={() => setUploadModalOpen(false)} className="flex-1">
-                  ❌ CANCEL
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Community Stats */}
         <Card className="mission-card mb-8">
@@ -450,9 +452,9 @@ export default function CountdownPage() {
                 variant="neon-pink"
                 size="lg"
                 className="text-lg px-8"
-                onClick={() => navigate("/mission-briefing")}
+                onClick={() => navigate("/waitlist")}
               >
-                🏢 ENTER THE REAL ESTATE HEIST →
+                💼 BUILD YOUR REAL ESTATE EMPIRE - Create your heist account →
               </Button>
 
               <Button
