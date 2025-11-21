@@ -51,7 +51,7 @@ export default function RegisterPage() {
         description: "Welcome to the operation.",
       });
 
-      navigate("/mission-briefing");
+      navigate("/coming-soon");
     } catch (error: any) {
       toast({
         title: "❌ RECRUITMENT FAILED",

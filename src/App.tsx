@@ -86,6 +86,7 @@ const App = () => (
           <Route path="/countdown" element={<CountdownPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/coming-soon" element={<ComingSoonPage />} />
           <Route path="/black-market" element={<BlackMarketPage />} />
           <Route path="/black-market/:id" element={<DealDetailPage />} />
           
