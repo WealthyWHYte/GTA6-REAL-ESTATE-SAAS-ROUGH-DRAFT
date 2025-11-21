@@ -31,7 +31,7 @@ export default function LoginPage() {
         description: "Welcome back to the heist crew.",
       });
 
-      navigate("/mission-briefing");
+      navigate("/coming-soon");
     } catch (error: any) {
       toast({
         title: "❌ ACCESS DENIED",

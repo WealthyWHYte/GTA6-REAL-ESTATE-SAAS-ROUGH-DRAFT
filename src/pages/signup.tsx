@@ -108,7 +108,7 @@ export default function WaitlistPage() {
 
       toast.success("🎭 Account created! Welcome to the heist crew!");
       setTimeout(() => {
-        navigate('/countdown');
+        navigate('/coming-soon');
       }, 2000);
 
     } catch (error) {

@@ -242,37 +242,37 @@ export default function CountdownPage() {
         </div>
 
         {/* Countdown Timer */}
-        <Card className="mission-card mb-12">
+        <Card className="mission-card mb-8 md:mb-12">
           <CardHeader>
-            <CardTitle className="text-center text-3xl font-gta text-vice-pink">
+            <CardTitle className="text-center text-2xl md:text-3xl font-gta text-vice-pink">
               🚀 LAUNCH COUNTDOWN
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-4 gap-6 text-center">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 text-center">
               <div className="space-y-2">
-                <div className="text-6xl font-gta text-vice-cyan font-black">
+                <div className="text-4xl md:text-6xl font-gta text-vice-cyan font-black">
                   {timeLeft.days.toString().padStart(2, '0')}
                 </div>
-                <div className="text-sm text-muted-foreground uppercase tracking-wider">DAYS</div>
+                <div className="text-xs md:text-sm text-muted-foreground uppercase tracking-wider">DAYS</div>
               </div>
               <div className="space-y-2">
-                <div className="text-6xl font-gta text-vice-orange font-black">
+                <div className="text-4xl md:text-6xl font-gta text-vice-orange font-black">
                   {timeLeft.hours.toString().padStart(2, '0')}
                 </div>
-                <div className="text-sm text-muted-foreground uppercase tracking-wider">HOURS</div>
+                <div className="text-xs md:text-sm text-muted-foreground uppercase tracking-wider">HOURS</div>
               </div>
               <div className="space-y-2">
-                <div className="text-6xl font-gta text-vice-yellow font-black">
+                <div className="text-4xl md:text-6xl font-gta text-vice-yellow font-black">
                   {timeLeft.minutes.toString().padStart(2, '0')}
                 </div>
-                <div className="text-sm text-muted-foreground uppercase tracking-wider">MINUTES</div>
+                <div className="text-xs md:text-sm text-muted-foreground uppercase tracking-wider">MINUTES</div>
               </div>
               <div className="space-y-2">
-                <div className="text-6xl font-gta text-vice-pink font-black">
+                <div className="text-4xl md:text-6xl font-gta text-vice-pink font-black">
                   {timeLeft.seconds.toString().padStart(2, '0')}
                 </div>
-                <div className="text-sm text-muted-foreground uppercase tracking-wider">SECONDS</div>
+                <div className="text-xs md:text-sm text-muted-foreground uppercase tracking-wider">SECONDS</div>
               </div>
             </div>
           </CardContent>
@@ -461,11 +461,11 @@ export default function CountdownPage() {
               Want to build your real estate empire in the real world?
             </p>
 
-            <div className="flex flex-wrap gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               variant="neon-pink"
               size="lg"
-              className="text-lg px-8"
+              className="text-base md:text-lg px-6 md:px-8"
               onClick={() => navigate("/signup")}
             >
               💼 BUILD YOUR REAL ESTATE EMPIRE
@@ -474,7 +474,7 @@ export default function CountdownPage() {
               <Button
                 variant="outline"
                 size="lg"
-                className="text-lg px-8 border-vice-cyan text-vice-cyan hover:bg-vice-cyan hover:text-background"
+                className="text-base md:text-lg px-6 md:px-8 border-vice-cyan text-vice-cyan hover:bg-vice-cyan hover:text-background"
                 onClick={() => window.open('https://t.me/gta6realestate', '_blank')}
               >
                 🎮 JOIN TELEGRAM COMMUNITY
