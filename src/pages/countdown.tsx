@@ -217,7 +217,7 @@ export default function CountdownPage() {
     <div
       className="min-h-screen relative overflow-hidden"
       style={{
-        backgroundImage: 'url(/wholesalionaire-bg.jpg)',
+        backgroundImage: 'url(/Wholesalionaires Function.jpg)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
