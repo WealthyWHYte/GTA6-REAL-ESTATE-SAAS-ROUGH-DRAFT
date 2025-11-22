@@ -18,24 +18,11 @@ export default function UploadPage() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        resolve(base64.split(",")[1]);
-      };
-      reader.onerror = reject;
-    });
-  };
-
   const handleUpload = async () => {
     if (files.length === 0) return;
 
     setLoading(true);
-    const datasetIds: string[] = [];
-    const BATCH_SIZE = 10;
+    setUploadProgress("Processing CSV files...");
 
     try {
       const {
@@ -43,40 +30,26 @@ export default function UploadPage() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const webhookUrl =
-        import.meta.env.VITE_N8N_WEBHOOK_URL ||
-        "http://localhost:5678/webhook/pipeline-scout/upload";
+      // Process each file
+      const datasetIds: string[] = [];
 
-      // ✅ OPTIMIZATION 1: Process in batches
-      for (let i = 0; i < files.length; i += BATCH_SIZE) {
-        const batch = files.slice(i, i + BATCH_SIZE);
-        const currentBatch = Math.floor(i / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(files.length / BATCH_SIZE);
+      for (const file of files) {
+        setUploadProgress(`Processing ${file.name}...`);
 
-        setUploadProgress(`Uploading batch ${currentBatch}/${totalBatches}...`);
+        // Read CSV content
+        const csv_data = await file.text();
 
-        const batchPromises = batch.map(async (file) => {
-          const base64Data = await fileToBase64(file);
-
-          const response = await fetch(webhookUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              account_id: user.id,
-              file: { name: file.name, data: base64Data },
-            }),
-          });
-
-          const result = await response.json();
-          if (!response.ok) {
-            throw new Error(result.message || `Upload failed for ${file.name}`);
+        // Call Supabase Edge Function
+        const { data, error } = await supabase.functions.invoke('process-csv', {
+          body: {
+            csv_data,
+            account_id: user.id
           }
-
-          return result.dataset_id;
         });
 
-        const batchDatasetIds = await Promise.all(batchPromises);
-        datasetIds.push(...batchDatasetIds);
+        if (error) throw error;
+
+        datasetIds.push(data.dataset_id);
       }
 
       toast({
@@ -84,6 +57,7 @@ export default function UploadPage() {
         description: `${files.length} heist missions are now active!`,
       });
 
+      // Navigate to mission control with all datasets
       navigate(`/mission-control?datasets=${datasetIds.join(",")}`);
     } catch (error) {
       toast({
@@ -96,6 +70,10 @@ export default function UploadPage() {
       setUploadProgress("");
     }
   };
+
+
+
+
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
