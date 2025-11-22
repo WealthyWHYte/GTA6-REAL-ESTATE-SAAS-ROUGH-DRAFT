@@ -48,85 +48,85 @@ export default function CountdownPage() {
   // GTA 6 Announcement Date: January 1, 2024 (for progress calculation)
   const announcementDate = new Date('2024-01-01T00:00:00Z');
 
-  // Community artwork data - using local images from public/fan-art/
+  // Community artwork data - using local images from public/
   const communityArt = [
     {
       id: 1,
-      title: "Vice City Sunset",
-      artist: "@GTAFan247",
-      image: "/fan-art/GTA 6 Map.png",
+      title: "",
+      artist: "",
+      image: "/GTA 6 Map.png",
       likes: 1247,
       comments: 89
     },
     {
       id: 2,
-      title: "Tommy Vercetti Returns",
-      artist: "@ViceCityLegend",
-      image: "/fan-art/GTA 6 Pic.heic",
+      title: "",
+      artist: "",
+      image: "/GTA 6 Pic.heic",
       likes: 892,
       comments: 67
     },
     {
       id: 3,
-      title: "Ocean Drive Dreams",
-      artist: "@MiamiArtist",
-      image: "/fan-art/IMG_0085.png",
+      title: "",
+      artist: "",
+      image: "/IMG_0085.png",
       likes: 756,
       comments: 45
     },
     {
       id: 4,
-      title: "GTA 6 Concept Art",
-      artist: "@GameDesigner",
-      image: "/fan-art/IMG_0995.png",
+      title: "",
+      artist: "",
+      image: "/IMG_0995.png",
       likes: 634,
       comments: 32
     },
     {
       id: 5,
-      title: "Vice City Nights",
-      artist: "@NightOwl",
-      image: "/fan-art/IMG_1182.png",
+      title: "",
+      artist: "",
+      image: "/IMG_1182.png",
       likes: 523,
       comments: 28
     },
     {
       id: 6,
-      title: "Palm Trees Vice City",
-      artist: "@Community",
-      image: "/fan-art/IMG_4137.png",
+      title: "",
+      artist: "",
+      image: "/IMG_4137.png",
       likes: 445,
       comments: 23
     },
     {
       id: 7,
-      title: "Vice City Skyline",
-      artist: "@FanArt",
-      image: "/fan-art/IMG_4138.jpeg",
+      title: "",
+      artist: "",
+      image: "/IMG_4138.jpeg",
       likes: 389,
       comments: 19
     },
     {
       id: 8,
-      title: "GTA VI Logo Neon",
-      artist: "@LogoDesigner",
-      image: "/fan-art/IMG_4139.jpeg",
+      title: "",
+      artist: "",
+      image: "/IMG_4139.jpeg",
       likes: 567,
       comments: 34
     },
     {
       id: 9,
-      title: "Lucia Character Art",
-      artist: "@CharacterArtist",
-      image: "/fan-art/IMG_4141.jpeg",
+      title: "",
+      artist: "",
+      image: "/IMG_4141.jpeg",
       likes: 723,
       comments: 41
     },
     {
       id: 10,
-      title: "Vice City Map Art",
-      artist: "@MapArtist",
-      image: "/fan-art/gta6-custom-cover.png",
+      title: "",
+      artist: "",
+      image: "/gta6-custom-cover.png",
       likes: 298,
       comments: 15
     }
@@ -298,10 +298,6 @@ export default function CountdownPage() {
                 />
               </div>
               <div className="text-center">
-                <h3 className="text-xl font-gta text-vice-cyan mb-1">
-                  "{communityArt[currentArtIndex].title}"
-                </h3>
-                <p className="text-vice-pink mb-4">by {communityArt[currentArtIndex].artist}</p>
                 <div className="flex items-center justify-center gap-6 mb-4">
                   <div className="flex items-center gap-2">
                     <Heart className="w-5 h-5 text-vice-pink" />
@@ -477,7 +473,7 @@ export default function CountdownPage() {
                 variant="outline"
                 size="lg"
                 className="text-sm md:text-base px-6 md:px-8 border-vice-cyan text-vice-cyan hover:bg-vice-cyan hover:text-background"
-                onClick={() => window.open('https://t.me/gta6realestate', '_blank')}
+                onClick={() => window.open('https://t.me/wealthywhyte', '_blank')}
               >
                 🎮 JOIN TELEGRAM COMMUNITY
               </Button>
