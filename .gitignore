@@ -18,3 +18,5 @@ URHUSTLEHOUSE/
 __pycache__/
 .blackbox/
 supabase/.temp/
+credentials.json
+supabase/functions/_shared/ai-router.ts
