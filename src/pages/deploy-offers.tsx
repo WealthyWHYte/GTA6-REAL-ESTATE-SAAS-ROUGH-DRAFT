@@ -1,12 +1,13 @@
-//src/page/deploy-offer.tsx
+// src/pages/deploy-offers.tsx
+// Real property data from uploaded CSVs
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ArrowLeft,
   Eye,
@@ -15,225 +16,197 @@ import {
   Download,
   Star,
   CheckSquare,
-  Square
+  Square,
+  Loader2,
+  Mail,
+  Building,
+  DollarSign,
+  Target
 } from "lucide-react";
-
-interface Property {
-  id: string;
-  address: string;
-  listPrice: number;
-  arv: number;
-  strategy: string;
-  agentName: string;
-  agentEmail: string;
-  stars: number;
-  roi: number;
-  selected: boolean;
-}
 
 export default function DeployOffersPage() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [properties, setProperties] = useState<any[]>([]);
   const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
   const [filters, setFilters] = useState({
     starsOnly: false,
-    minRoi: 15,
-    maxPrice: 3000000
+    minRoi: 0,
+    maxPrice: 100000000
   });
 
-  const [properties] = useState<Property[]>([
-    {
-      id: "1",
-      address: "456 Palm Ave, Miami Beach",
-      listPrice: 2100000,
-      arv: 2800000,
-      strategy: "Subject-To",
-      agentName: "John Smith",
-      agentEmail: "john@realty.com",
-      stars: 5,
-      roi: 22,
-      selected: false
-    },
-    {
-      id: "2",
-      address: "789 Ocean Blvd, Fort Lauderdale",
-      listPrice: 3400000,
-      arv: 4200000,
-      strategy: "Seller Finance",
-      agentName: "Sarah Johnson",
-      agentEmail: "sarah@coastal.com",
-      stars: 5,
-      roi: 19,
-      selected: false
-    },
-    {
-      id: "3",
-      address: "123 Beach St, Boca Raton",
-      listPrice: 1800000,
-      arv: 2400000,
-      strategy: "Hybrid",
-      agentName: "Mike Davis",
-      agentEmail: "mike@bocaraton.com",
-      stars: 4.8,
-      roi: 18,
-      selected: false
-    },
-    {
-      id: "4",
-      address: "234 Collins Ave, Miami Beach",
-      listPrice: 2700000,
-      arv: 3500000,
-      strategy: "Subject-To",
-      agentName: "Lisa Chen",
-      agentEmail: "lisa@miamirealestate.com",
-      stars: 4,
-      roi: 17,
-      selected: false
-    },
-    {
-      id: "5",
-      address: "567 Washington Ave, Miami Beach",
-      listPrice: 1900000,
-      arv: 2500000,
-      strategy: "Seller Finance",
-      agentName: "Tom Wilson",
-      agentEmail: "tom@wilsonproperties.com",
-      stars: 4,
-      roi: 16,
-      selected: false
-    }
-  ]);
+  // Fetch real properties from database
+  useEffect(() => {
+    loadProperties();
+  }, []);
 
-  const filteredProperties = properties.filter(property => {
-    if (filters.starsOnly && property.stars < 5) return false;
-    if (property.roi < filters.minRoi) return false;
-    if (property.listPrice > filters.maxPrice) return false;
+  async function loadProperties() {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Get properties with offers - from real uploaded data
+      const { data, error } = await supabase
+        .from('properties')
+        .select(`
+          *,
+          offers (*)
+        `)
+        .eq('account_id', user?.id)
+        .in('pipeline_status', ['scouted', 'market_research', 'researched', 'underwriting', 'underwritten', 'offer_generation', 'offer_sent'])
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      
+      // Transform data to match expected format
+      const transformed = (data || []).map((p: any) => {
+        const offer = p.offers?.[0] || {};
+        return {
+          id: p.property_id || p.id,
+          address: p.address,
+          city: p.city,
+          state: p.state,
+          zip: p.zip,
+          listPrice: p.listing_price || p.price || 0,
+          arv: p.estimated_value || p.arv || 0,
+          strategy: offer.strategy || p.recommended_strategy || 'TBD',
+          agentName: p.listing_agent_full_name || 'TBD',
+          agentEmail: p.listing_agent_email || '',
+          agentPhone: p.listing_agent_phone || '',
+          stars: p.score || p.stars || 0,
+          roi: offer.roi || p.roi || 0,
+          offerPrice: offer.offer_price || 0,
+          mao: offer.max_allowable_offer || 0,
+          selected: false,
+          pipelineStatus: p.pipeline_status,
+          marketResearch: p.market_research,
+          underwriting: p.underwriting
+        };
+      });
+      
+      setProperties(transformed);
+    } catch (err) {
+      console.error('Error loading properties:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Filter properties
+  const filteredProperties = properties.filter(p => {
+    if (filters.starsOnly && p.stars < 3) return false;
+    if (p.roi < filters.minRoi) return false;
+    if (p.listPrice > filters.maxPrice) return false;
     return true;
   });
 
-  const handleSelectAll = () => {
-    const allIds = filteredProperties.map(p => p.id);
-    setSelectedProperties(allIds);
-  };
-
-  const handleDeselectAll = () => {
-    setSelectedProperties([]);
-  };
-
-  const handlePropertySelect = (propertyId: string) => {
-    setSelectedProperties(prev =>
-      prev.includes(propertyId)
-        ? prev.filter(id => id !== propertyId)
-        : [...prev, propertyId]
+  function handlePropertySelect(id: string) {
+    setSelectedProperties(prev => 
+      prev.includes(id) 
+        ? prev.filter(p => p !== id)
+        : [...prev, id]
     );
-  };
+  }
 
-  const renderStars = (rating: number) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star
-        key={i}
-        className={`w-4 h-4 ${i < Math.floor(rating) ? 'text-vice-yellow fill-current' : 'text-muted-foreground'}`}
-      />
-    ));
-  };
+  function handleSelectAll() {
+    setSelectedProperties(filteredProperties.map(p => p.id));
+  }
 
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toLocaleString()}`;
-  };
+  function handleDeselectAll() {
+    setSelectedProperties([]);
+  }
+
+  function formatCurrency(value: number) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0
+    }).format(value);
+  }
+
+  function getStatusColor(status: string) {
+    const colors: Record<string, string> = {
+      scouted: 'bg-blue-500',
+      market_research: 'bg-yellow-500',
+      researched: 'bg-orange-500',
+      underwriting: 'bg-purple-500',
+      underwritten: 'bg-green-500',
+      offer_generation: 'bg-pink-500',
+      offer_sent: 'bg-cyan-500',
+      accepted: 'bg-emerald-500',
+      rejected: 'bg-red-500'
+    };
+    return colors[status] || 'bg-gray-500';
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
+          <p className="text-muted-foreground">Loading properties from database...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
-
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/command-center")}
-              className="border-vice-cyan text-vice-cyan hover:bg-vice-cyan hover:text-background"
-            >
-              <ArrowLeft className="mr-2 w-4 h-4" />
-              BACK TO COMMAND CENTER
-            </Button>
-            <div>
-              <h1 className="text-4xl font-gta font-black text-transparent bg-gradient-neon bg-clip-text">
-                DEPLOY OFFERS
-              </h1>
-              <p className="text-vice-cyan font-body">Send personalized offers to listing agents</p>
-            </div>
+        <div className="flex items-center gap-4 mb-8">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-gta-blue flex items-center gap-3">
+              <Send className="w-8 h-8 text-blue-500" />
+              Deploy Offers
+            </h1>
+            <p className="text-muted-foreground">
+              {filteredProperties.length} properties ready for offer deployment
+            </p>
           </div>
+          <Badge variant="outline" className="text-sm">
+            {selectedProperties.length} selected
+          </Badge>
         </div>
 
         {/* Filters */}
-        <Card className="mission-card mb-6">
-          <CardHeader>
-            <CardTitle className="font-gta text-vice-pink">FILTERS</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-4 items-center">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="stars-only"
-                  checked={filters.starsOnly}
-                  onCheckedChange={(checked) => setFilters(prev => ({ ...prev, starsOnly: checked as boolean }))}
-                />
-                <label htmlFor="stars-only" className="text-sm font-medium">5⭐ Only</label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm">ROI &gt;</span>
-                <Select
-                    value={filters.minRoi.toString()}
-                    onValueChange={(value) => setFilters(prev => ({ ...prev, minRoi: parseInt(value) }))}
-                >
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10%</SelectItem>
-                    <SelectItem value="15">15%</SelectItem>
-                    <SelectItem value="20">20%</SelectItem>
-                    <SelectItem value="25">25%</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm">Price &lt;</span>
-                <Select
-                    value={filters.maxPrice.toString()}
-                    onValueChange={(value) => setFilters(prev => ({ ...prev, maxPrice: parseInt(value) }))}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="2000000">$2M</SelectItem>
-                    <SelectItem value="3000000">$3M</SelectItem>
-                    <SelectItem value="5000000">$5M</SelectItem>
-                    <SelectItem value="10000000">$10M</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setFilters({ starsOnly: false, minRoi: 15, maxPrice: 3000000 })}
-              >
-                Clear
-              </Button>
+        <div className="bg-card border rounded-lg p-4 mb-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox 
+                id="starsOnly" 
+                checked={filters.starsOnly}
+                onCheckedChange={(checked) => setFilters(f => ({...f, starsOnly: !!checked}))}
+              />
+              <label htmlFor="starsOnly" className="text-sm">3+ Stars Only</label>
             </div>
-          </CardContent>
-        </Card>
+            
+            <div className="flex items-center gap-2">
+              <label className="text-sm">Min ROI:</label>
+              <input 
+                type="number" 
+                value={filters.minRoi}
+                onChange={(e) => setFilters(f => ({...f, minRoi: Number(e.target.value)}))}
+                className="w-20 bg-background border rounded px-2 py-1 text-sm"
+              />
+            </div>
 
-        {/* Selection Summary */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="text-vice-cyan font-medium">
-            SELECTED: {selectedProperties.length} properties
-          </div>
-          <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <label className="text-sm">Max Price:</label>
+              <input 
+                type="number" 
+                value={filters.maxPrice}
+                onChange={(e) => setFilters(f => ({...f, maxPrice: Number(e.target.value)}))}
+                className="w-32 bg-background border rounded px-2 py-1 text-sm"
+              />
+            </div>
+
+            <div className="flex-1" />
+
             <Button variant="outline" size="sm" onClick={handleSelectAll}>
               <CheckSquare className="mr-2 w-4 h-4" />
               SELECT ALL
@@ -246,81 +219,135 @@ export default function DeployOffersPage() {
         </div>
 
         {/* Properties List */}
-        <div className="space-y-4 mb-8">
-          {filteredProperties.map((property) => (
-            <Card key={property.id} className="mission-card">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <Checkbox
-                    checked={selectedProperties.includes(property.id)}
-                    onCheckedChange={() => handlePropertySelect(property.id)}
-                    className="mt-1"
-                  />
+        {filteredProperties.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Building className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">No Properties Found</h3>
+              <p className="text-muted-foreground mb-4">
+                Upload properties using Pipeline Scout to see them here.
+              </p>
+              <Button onClick={() => navigate('/agent/pipeline-scout')}>
+                Go to Pipeline Scout
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4 mb-8">
+            {filteredProperties.map((property) => (
+              <Card key={property.id} className="mission-card">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <Checkbox
+                      checked={selectedProperties.includes(property.id)}
+                      onCheckedChange={() => handlePropertySelect(property.id)}
+                      className="mt-1"
+                    />
 
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-gta text-vice-cyan text-lg mb-2">{property.address}</h3>
-                        <div className="flex items-center gap-4 mb-2">
-                          <span className="text-vice-green font-semibold">
-                            List: {formatCurrency(property.listPrice)}
-                          </span>
-                          <span className="text-vice-orange">
-                            ARV: {formatCurrency(property.arv)}
-                          </span>
-                          <Badge variant="outline" className="border-vice-pink text-vice-pink">
-                            {property.strategy}
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h3 className="font-gta text-vice-cyan text-lg mb-2">
+                            {property.address}
+                          </h3>
+                          <div className="flex items-center gap-4 mb-2">
+                            <span className="text-vice-green font-semibold">
+                              List: {formatCurrency(property.listPrice)}
+                            </span>
+                            <span className="text-vice-orange">
+                              ARV: {formatCurrency(property.arv)}
+                            </span>
+                            {property.offerPrice > 0 && (
+                              <span className="text-blue-400 font-semibold">
+                                Offer: {formatCurrency(property.offerPrice)}
+                              </span>
+                            )}
+                            <Badge variant="outline" className="border-vice-pink text-vice-pink">
+                              {property.strategy}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star 
+                                  key={i} 
+                                  className={`w-4 h-4 ${i < Math.floor(property.stars) ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'}`} 
+                                />
+                              ))}
+                              <span className="ml-1 text-sm">{property.stars.toFixed(1)}</span>
+                            </div>
+                            <span className="text-vice-yellow">{property.roi}% ROI</span>
+                            <Badge className={`${getStatusColor(property.pipelineStatus)} text-white`}>
+                              {property.pipelineStatus}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-sm text-muted-foreground mb-1">Agent:</div>
+                          <div className="font-medium text-vice-cyan">{property.agentName}</div>
+                          <div className="text-xs text-muted-foreground">{property.agentEmail}</div>
+                          {property.agentPhone && (
+                            <div className="text-xs text-muted-foreground">{property.agentPhone}</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {property.offerPrice > 0 ? (
+                          <Badge variant="outline" className="border-vice-green text-vice-green">
+                            ✅ Offer Ready
                           </Badge>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex">{renderStars(property.stars)}</div>
-                          <span className="text-vice-yellow">{property.roi}% ROI</span>
-                        </div>
+                        ) : (
+                          <Badge variant="outline" className="border-yellow-500 text-yellow-500">
+                            ⏳ Needs Offer
+                          </Badge>
+                        )}
+                        <Button variant="outline" size="sm" className="border-vice-cyan text-vice-cyan">
+                          <Eye className="mr-2 w-4 h-4" />
+                          VIEW DETAILS
+                        </Button>
+                        <Button variant="outline" size="sm" className="border-vice-orange text-vice-orange">
+                          <FileText className="mr-2 w-4 h-4" />
+                          PREVIEW OFFER
+                        </Button>
                       </div>
-
-                      <div className="text-right">
-                        <div className="text-sm text-muted-foreground mb-1">Agent:</div>
-                        <div className="font-medium text-vice-cyan">{property.agentName}</div>
-                        <div className="text-xs text-muted-foreground">{property.agentEmail}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="border-vice-green text-vice-green">
-                        ✅ Offer Ready
-                      </Badge>
-                      <Button variant="outline" size="sm" className="border-vice-cyan text-vice-cyan">
-                        <Eye className="mr-2 w-4 h-4" />
-                        VIEW DETAILS
-                      </Button>
-                      <Button variant="outline" size="sm" className="border-vice-orange text-vice-orange">
-                        <FileText className="mr-2 w-4 h-4" />
-                        PREVIEW OFFER
-                      </Button>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* Action Buttons */}
-        <div className="flex justify-center gap-4">
-          <Button
-            variant="neon-pink"
-            size="lg"
-            className="px-8"
-            disabled={selectedProperties.length === 0}
-          >
-            <Send className="mr-2 w-5 h-5" />
-            DEPLOY SELECTED OFFERS ({selectedProperties.length})
-          </Button>
-          <Button variant="outline" size="lg" className="px-8 border-vice-cyan text-vice-cyan">
-            <Download className="mr-2 w-5 h-5" />
-            EXPORT TO PDF
-          </Button>
-        </div>
+        {filteredProperties.length > 0 && (
+          <div className="flex justify-center gap-4">
+            <Button
+              variant="neon-pink"
+              size="lg"
+              className="px-8"
+              disabled={selectedProperties.length === 0}
+              onClick={() => navigate('/send-offers')}
+            >
+              <Send className="mr-2 w-5 h-5" />
+              SEND OFFERS VIA EMAIL ({selectedProperties.length})
+            </Button>
+            <Button 
+              variant="outline" 
+              size="lg" 
+              className="px-8 border-vice-cyan text-vice-cyan"
+              onClick={() => navigate('/send-offers')}
+            >
+              <Mail className="mr-2 w-5 h-5" />
+              EMAIL SENDER
+            </Button>
+            <Button variant="outline" size="lg" className="px-8 border-vice-cyan text-vice-cyan">
+              <Download className="mr-2 w-5 h-5" />
+              EXPORT TO PDF
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

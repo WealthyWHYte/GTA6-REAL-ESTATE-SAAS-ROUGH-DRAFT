@@ -37,17 +37,17 @@ export default function GTAMoneyBar() {
       // Get all properties - SECURE with account_id
       const { data: properties } = await supabase
         .from("properties")
-        .select("list_price, assignment_fee, assignment_price, offer_terms")
+        .select("price, offer_terms")
         .eq("account_id", user.id);
 
       // Calculate stats
       const totalValue = properties?.reduce((sum, p) => sum + (p.list_price || 0), 0) || 0;
-      const wholesaleFees = properties?.reduce((sum, p) => sum + (p.assignment_fee || 0), 0) || 0;
+      const wholesaleFees = properties?.reduce((sum, p) => sum + ((p.offer_terms as any)?.wholesale_fee || 0), 0) || 0;
       const acquisitionFees = properties?.reduce((sum, p) => {
         const terms = p.offer_terms as any;
         return sum + (terms?.acquisition_fee || 0);
       }, 0) || 0;
-      const sellerClosings = properties?.reduce((sum, p) => sum + (p.assignment_price || 0), 0) || 0;
+      const sellerClosings = properties?.reduce((sum, p) => sum + ((p.offer_terms as any)?.seller_closing || 0), 0) || 0;
 
       setStats({
         totalValue,

@@ -56,7 +56,7 @@ export default function DashboardPage() {
         <div className="bg-gray-900 p-6 rounded-lg border border-blue-500">
           <h3 className="text-xl font-bold mb-2">Properties Analyzed</h3>
           <p className="text-3xl text-blue-500">
-            {missions.reduce((sum, m) => sum + (m.processed_count || 0), 0)}
+            {missions.reduce((sum, m) => sum + (m.processed_properties || m.processed_count || 0), 0)}
           </p>
         </div>
 
@@ -97,15 +97,15 @@ export default function DashboardPage() {
                   <div>
                     <h3 className="font-bold text-lg">{mission.name}</h3>
                     <p className="text-gray-400 text-sm">
-                      {mission.row_count} properties • {mission.status}
+                      {mission.total_properties || mission.row_count} properties • {mission.status}
                     </p>
                   </div>
                   <div className="text-right">
                     <div className="text-green-500 font-bold">
                       {Math.round(
-                        (mission.processed_count / mission.row_count) * 100
-                      )}
-                      %
+                        ((mission.processed_properties || mission.processed_count || 0) / 
+                         (mission.total_properties || mission.row_count || 1)) * 100
+                      )}%
                     </div>
                     <div className="text-gray-400 text-sm">Complete</div>
                   </div>
@@ -116,7 +116,8 @@ export default function DashboardPage() {
                     className="bg-green-500 h-2 rounded-full transition-all"
                     style={{
                       width: `${
-                        (mission.processed_count / mission.row_count) * 100
+                        ((mission.processed_properties || mission.processed_count || 0) / 
+                         (mission.total_properties || mission.row_count || 1)) * 100
                       }%`,
                     }}
                   />

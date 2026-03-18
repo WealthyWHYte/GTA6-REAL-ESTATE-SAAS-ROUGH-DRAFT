@@ -12,8 +12,8 @@ interface Dataset {
   dataset_id: string;
   name: string;
   status: string;
-  row_count: number;
-  processed_count: number;
+  total_properties: number;
+  processed_properties: number;
   error_count: number;
   created_at: string;
 }
@@ -72,12 +72,10 @@ export default function MissionControlPage() {
     );
   }
 
-  const totalProperties = missions.reduce((sum, m) => sum + m.row_count, 0);
-  const totalProcessed = missions.reduce((sum, m) => sum + m.processed_count, 0);
-  const totalErrors = missions.reduce((sum, m) => sum + m.error_count, 0);
-  const overallProgress = totalProperties > 0 
-    ? Math.round((totalProcessed / totalProperties) * 100)
-    : 0;
+  const totalProperties = missions.reduce((sum, m) => sum + (Number(m.total_properties) || 0), 0);
+  const totalProcessed = missions.reduce((sum, m) => sum + (Number(m.processed_properties) || 0), 0);
+  const totalErrors = missions.reduce((sum, m) => sum + (Number(m.error_count) || 0), 0);
+  const overallProgress = totalProperties > 0 ? Math.min(100, Math.round((totalProcessed / totalProperties) * 100)) : 0;
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { color: string; icon: string }> = {
@@ -168,8 +166,8 @@ export default function MissionControlPage() {
           <h2 className="text-3xl font-gta text-vice-pink neon-text">INDIVIDUAL MISSIONS</h2>
 
           {missions.map((mission) => {
-            const progress = mission.row_count > 0
-              ? Math.round((mission.processed_count / mission.row_count) * 100)
+            const progress = Number(mission.total_properties) > 0
+              ? Math.min(100, Math.round((Number(mission.processed_properties) / Number(mission.total_properties)) * 100))
               : 0;
 
             return (
@@ -183,11 +181,11 @@ export default function MissionControlPage() {
                 <CardContent>
                   <div className="grid md:grid-cols-3 gap-4 mb-4">
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-vice-pink">{mission.row_count}</p>
+                      <p className="text-2xl font-bold text-vice-pink">{mission.total_properties}</p>
                       <p className="text-xs text-muted-foreground">Total</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-vice-green">{mission.processed_count}</p>
+                      <p className="text-2xl font-bold text-vice-green">{mission.processed_properties}</p>
                       <p className="text-xs text-muted-foreground">Processed</p>
                     </div>
                     <div className="text-center">

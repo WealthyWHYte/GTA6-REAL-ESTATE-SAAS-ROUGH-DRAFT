@@ -39,6 +39,11 @@ export default function UploadPage() {
         // Read CSV content
         const csv_data = await file.text();
 
+        // Debug: Log the first line (headers) to see column names
+        const firstLine = csv_data.split('\n')[0];
+        console.log('📄 File:', file.name);
+        console.log('📋 CSV Headers:', firstLine);
+
         // Call Supabase Edge Function
         const { data, error } = await supabase.functions.invoke('process-csv', {
           body: {
@@ -49,6 +54,7 @@ export default function UploadPage() {
 
         if (error) throw error;
 
+        console.log('✅ Upload result:', data);
         datasetIds.push(data.dataset_id);
       }
 

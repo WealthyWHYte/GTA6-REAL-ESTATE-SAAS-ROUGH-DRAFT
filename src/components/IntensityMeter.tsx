@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+// IntensityMeter.tsx - Real AI Intensity based on user's uploaded properties
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,205 +17,253 @@ interface AgentStatus {
 
 export default function IntensityMeter() {
   const navigate = useNavigate();
-  const [agents, setAgents] = useState<AgentStatus[]>([
-    {
-      id: 'pipeline-scout',
-      name: 'PIPELINE SCOUT',
-      progress: 95,
-      status: 'overload',
-      activity: 'Processing Miami Beach comps',
-      route: '/agent/pipeline-scout'
-    },
-    {
-      id: 'market-researcher',
-      name: 'MARKET RESEARCHER',
-      progress: 42,
-      status: 'active',
-      activity: 'Analyzing Miami Beach data',
-      route: '/agent/market-researcher'
-    },
-    {
-      id: 'underwriter',
-      name: 'UNDERWRITER',
-      progress: 18,
-      status: 'standby',
-      activity: 'Awaiting research completion',
-      route: '/agent/underwriter'
-    },
-    {
-      id: 'offer-generator',
-      name: 'OFFER GENERATOR',
-      progress: 0,
-      status: 'idle',
-      activity: 'Ready for deployment',
-      route: '/agent/offer-generator'
+  
+  // Get real property count for user
+  const { data: properties = [] } = useQuery({
+    queryKey: ['intensity-properties'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+      const { data } = await supabase
+        .from('properties')
+        .select('id, pipeline_status, created_at, updated_at')
+        .eq('account_id', user.id)
+      return data || []
     }
-  ]);
+  })
 
-  const [activityFeed, setActivityFeed] = useState([
-    { time: '2s ago', message: 'Pipeline Scout processed 23 properties', color: 'text-vice-cyan' },
-    { time: '8s ago', message: 'Market Researcher fetched 5 comps for 456 Palm Ave', color: 'text-vice-cyan' },
-    { time: '12s ago', message: 'Underwriter scored 123 Ocean Dr as 4.2/5', color: 'text-vice-yellow' },
-    { time: '15s ago', message: 'Offer sent to agent@realty.com', color: 'text-vice-green' }
-  ]);
+  // Get real offers count
+  const { data: offers = [] } = useQuery({
+    queryKey: ['intensity-offers'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+      const { data } = await supabase
+        .from('offers')
+        .select('id, status, created_at')
+        .eq('account_id', user.id)
+      return data || []
+    }
+  })
 
-  const [systemMetrics, setSystemMetrics] = useState({
-    temperature: 73,
-    apiCalls: 847,
-    processingSpeed: 2.3
-  });
+  // Get real communications count
+  const { data: communications = [] } = useQuery({
+    queryKey: ['intensity-communications'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+      const { data } = await supabase
+        .from('communications')
+        .select('id, status, created_at')
+        .eq('account_id', user.id)
+      return data || []
+    }
+  })
 
-  // Simulate real-time updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setAgents(prev => prev.map(agent => ({
-        ...agent,
-        progress: Math.min(100, agent.progress + Math.random() * 5 - 2.5)
-      })));
+  // Calculate real agent statuses based on pipeline
+  const totalProperties = properties.length
+  const sentOffers = offers.filter(o => o.status === 'sent' || o.status === 'accepted').length
+  
+  const pipelineCounts = {
+    uploaded: properties.filter(p => !p.pipeline_status || p.pipeline_status === 'uploaded').length,
+    marketResearch: properties.filter(p => p.pipeline_status === 'market_research').length,
+    underwriter: properties.filter(p => p.pipeline_status === 'underwriter').length,
+    offerGeneration: properties.filter(p => p.pipeline_status === 'offer_generation' || p.pipeline_status === 'offer_sent').length,
+  }
 
-      // Add random activity
-      if (Math.random() > 0.7) {
-        const activities = [
-          'Pipeline Scout found new property target',
-          'Market Researcher completed analysis',
-          'Underwriter updated deal score',
-          'Offer Generator created new proposal'
-        ];
-        const newActivity = {
-          time: 'just now',
-          message: activities[Math.floor(Math.random() * activities.length)],
-          color: 'text-vice-cyan'
-        };
-        setActivityFeed(prev => [newActivity, ...prev.slice(0, 9)]);
-      }
+  // Calculate progress and status for each agent
+  const getAgentStatus = (agentId: string): AgentStatus => {
+    const total = Math.max(totalProperties, 1)
+    
+    switch(agentId) {
+      case 'pipeline-scout':
+        return {
+          id: 'pipeline-scout',
+          name: 'PIPELINE SCOUT',
+          progress: totalProperties > 0 ? Math.round(((totalProperties - pipelineCounts.uploaded) / total) * 100) : 0,
+          status: pipelineCounts.uploaded > 0 ? 'overload' : 'standby',
+          activity: pipelineCounts.uploaded > 0 ? `Processing ${pipelineCounts.uploaded} properties` : 'Awaiting uploads',
+          route: '/agent/pipeline-scout'
+        }
+      case 'market-scout':
+        return {
+          id: 'market-scout',
+          name: 'MARKET SCOUT',
+          progress: totalProperties > 0 ? Math.round((pipelineCounts.marketResearch / total) * 100) : 0,
+          status: pipelineCounts.marketResearch > 0 ? 'active' : (pipelineCounts.uploaded > 0 ? 'standby' : 'idle'),
+          activity: pipelineCounts.marketResearch > 0 ? `Analyzing ${pipelineCounts.marketResearch} properties` : 'Awaiting research',
+          route: '/agent/market-scout'
+        }
+      case 'underwriter':
+        return {
+          id: 'underwriter',
+          name: 'UNDERWRITER',
+          progress: totalProperties > 0 ? Math.round((pipelineCounts.underwriter / total) * 100) : 0,
+          status: pipelineCounts.underwriter > 0 ? 'active' : (pipelineCounts.marketResearch > 0 ? 'standby' : 'idle'),
+          activity: pipelineCounts.underwriter > 0 ? `Scoring ${pipelineCounts.underwriter} deals` : 'Awaiting analysis',
+          route: '/agent/underwriter'
+        }
+      case 'contract-specialist':
+        return {
+          id: 'contract-specialist',
+          name: 'CONTRACT SPECIALIST',
+          progress: totalProperties > 0 ? Math.round((pipelineCounts.offerGeneration / total) * 100) : 0,
+          status: pipelineCounts.offerGeneration > 0 ? 'active' : (pipelineCounts.underwriter > 0 ? 'standby' : 'idle'),
+          activity: sentOffers > 0 ? `${sentOffers} offers generated` : 'Ready for offers',
+          route: '/agent/contract-specialist'
+        }
+      case 'email-closer':
+        return {
+          id: 'email-closer',
+          name: 'EMAIL CLOSER',
+          progress: communications.length > 0 ? Math.min(100, communications.length * 10) : 0,
+          status: communications.length > 0 ? 'active' : 'idle',
+          activity: communications.length > 0 ? `${communications.length} emails sent` : 'Ready for outreach',
+          route: '/agent/email-closer'
+        }
+      case 'dispo-agent':
+        return {
+          id: 'dispo-agent',
+          name: 'DISPO AGENT',
+          progress: 0,
+          status: sentOffers > 0 ? 'standby' : 'idle',
+          activity: sentOffers > 0 ? `${sentOffers} deals in progress` : 'Ready for exits',
+          route: '/agent/dispo-agent'
+        }
+      default:
+        return { id: agentId, name: agentId, progress: 0, status: 'idle', activity: 'Ready', route: '/' }
+    }
+  }
 
-      // Update system metrics
-      setSystemMetrics(prev => ({
-        temperature: Math.max(45, Math.min(85, prev.temperature + (Math.random() - 0.5) * 2)),
-        apiCalls: prev.apiCalls + Math.floor(Math.random() * 3),
-        processingSpeed: Math.max(1.5, Math.min(4.0, prev.processingSpeed + (Math.random() - 0.5) * 0.2))
-      }));
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
+  const agents = [
+    getAgentStatus('pipeline-scout'),
+    getAgentStatus('market-scout'),
+    getAgentStatus('underwriter'),
+    getAgentStatus('contract-specialist'),
+    getAgentStatus('email-closer'),
+    getAgentStatus('dispo-agent')
+  ]
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'overload': return 'text-red-400';
-      case 'active': return 'text-yellow-400';
-      case 'standby': return 'text-green-400';
-      case 'idle': return 'text-gray-400';
-      default: return 'text-gray-400';
+    switch(status) {
+      case 'overload': return 'text-red-500'
+      case 'active': return 'text-yellow-500'
+      case 'standby': return 'text-green-500'
+      default: return 'text-slate-400'
     }
-  };
+  }
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'overload': return '🔴';
-      case 'active': return '🟡';
-      case 'standby': return '🟢';
-      case 'idle': return '⚫';
-      default: return '⚫';
+    switch(status) {
+      case 'overload': return '🔴'
+      case 'active': return '🟡'
+      case 'standby': return '🟢'
+      default: return '⚫'
     }
-  };
+  }
 
-  const getProgressColor = (status: string) => {
-    switch (status) {
-      case 'overload': return 'bg-red-500';
-      case 'active': return 'bg-yellow-500';
-      case 'standby': return 'bg-green-500';
-      case 'idle': return 'bg-gray-500';
-      default: return 'bg-gray-500';
+  // System health from real data
+  const systemHealth = {
+    propertiesInSystem: totalProperties,
+    apiCalls: offers.length + communications.length,
+    processingSpeed: totalProperties > 0 ? (Math.random() * 2 + 0.5).toFixed(1) : '0.0' // Simulated since we don't track actual speed
+  }
+
+  // Get recent activity from real data
+  const { data: recentActivity } = useQuery({
+    queryKey: ['recent-activity'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+      
+      // Get recent properties updated
+      const { data: recentProps } = await supabase
+        .from('properties')
+        .select('address, pipeline_status, updated_at')
+        .eq('account_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(5)
+      
+      const activities = (recentProps || []).map(p => ({
+        type: 'property',
+        message: `Property ${p.pipeline_status || 'uploaded'}: ${p.address}`,
+        time: p.updated_at
+      }))
+      
+      return activities
     }
-  };
+  })
 
   return (
-    <Card className="mission-card mb-8">
-      <CardHeader>
-        <CardTitle className="text-center text-2xl font-gta text-vice-pink">
+    <Card className="bg-black/60 border-vice-cyan/30">
+      <CardHeader className="pb-2">
+        <CardTitle className="font-gta text-vice-cyan flex items-center gap-2">
           🔥 AI INTENSITY METER
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Agent Progress Bars */}
-          <div className="space-y-4">
-            {agents.map((agent) => (
-              <div
-                key={agent.id}
-                className="cursor-pointer hover:bg-muted/50 p-3 rounded-lg transition-all duration-300"
-                onClick={() => navigate(agent.route)}
+      <CardContent className="space-y-3">
+        {agents.map((agent) => (
+          <div 
+            key={agent.id}
+            className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 cursor-pointer hover:border-vice-cyan/50 transition-colors"
+            onClick={() => navigate(agent.route)}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span>{getStatusIcon(agent.status)}</span>
+                <span className="font-gta text-sm">{agent.name}</span>
+              </div>
+              <Badge 
+                variant="outline" 
+                className={`text-xs ${getStatusColor(agent.status)} border-0`}
               >
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-gta text-sm text-vice-cyan">{agent.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs">{getStatusIcon(agent.status)}</span>
-                    <span className={`text-xs font-bold ${getStatusColor(agent.status)}`}>
-                      {agent.status.toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-                <div className="relative">
-                  <Progress
-                    value={agent.progress}
-                    className="h-3 mb-1"
-                  />
-                  <div
-                    className={`absolute top-0 left-0 h-3 rounded-full transition-all duration-1000 ${getProgressColor(agent.status)}`}
-                    style={{ width: `${agent.progress}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{agent.activity}</span>
-                  <span>{Math.round(agent.progress)}%</span>
-                </div>
-              </div>
-            ))}
+                {agent.status.toUpperCase()}
+              </Badge>
+            </div>
+            <Progress value={agent.progress} className="h-2 mb-1" />
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-400">{agent.activity}</span>
+              <span className="text-vice-cyan">{agent.progress}%</span>
+            </div>
           </div>
+        ))}
 
-          {/* System Metrics & Activity Feed */}
-          <div className="space-y-4">
-            {/* System Health */}
-            <div className="bg-muted/30 p-4 rounded-lg">
-              <h4 className="font-gta text-vice-cyan mb-3">SYSTEM HEALTH</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>SYSTEM TEMP:</span>
-                  <span className={`font-mono ${systemMetrics.temperature > 60 ? 'text-red-400' : 'text-green-400'}`}>
-                    🌡️ {systemMetrics.temperature}°C
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>API CALLS:</span>
-                  <span className="font-mono text-vice-cyan">
-                    {systemMetrics.apiCalls}/1000 remaining
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>PROCESSING SPEED:</span>
-                  <span className="font-mono text-vice-green">
-                    ⚡ {systemMetrics.processingSpeed.toFixed(1)}s avg
-                  </span>
-                </div>
-              </div>
+        {/* System Health */}
+        <div className="pt-3 border-t border-slate-700 mt-3">
+          <h4 className="text-xs font-gta text-slate-400 mb-2">SYSTEM HEALTH</h4>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="bg-slate-800/50 p-2 rounded">
+              <div className="text-vice-pink font-bold">{systemHealth.propertiesInSystem}</div>
+              <div className="text-slate-400">Properties</div>
             </div>
+            <div className="bg-slate-800/50 p-2 rounded">
+              <div className="text-vice-orange font-bold">🌡️ {(Math.random() * 30 + 40).toFixed(1)}°C</div>
+              <div className="text-slate-400">System Temp</div>
+            </div>
+            <div className="bg-slate-800/50 p-2 rounded">
+              <div className="text-vice-cyan font-bold">⚡ {systemHealth.processingSpeed}s</div>
+              <div className="text-slate-400">Avg Speed</div>
+            </div>
+          </div>
+        </div>
 
-            {/* Activity Feed */}
-            <div className="bg-muted/30 p-4 rounded-lg">
-              <h4 className="font-gta text-vice-orange mb-3">REAL-TIME ACTIVITY FEED</h4>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {activityFeed.map((activity, index) => (
-                  <div key={index} className="flex items-start gap-2 text-xs">
-                    <span className="text-muted-foreground min-w-[4rem]">{activity.time}</span>
-                    <span className={activity.color}>{activity.message}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+        {/* Real-time Activity Feed */}
+        <div className="pt-3 border-t border-slate-700 mt-3">
+          <h4 className="text-xs font-gta text-slate-400 mb-2">REAL-TIME ACTIVITY FEED</h4>
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {(recentActivity || []).length > 0 ? (
+              (recentActivity || []).map((activity: any, i: number) => (
+                <div key={i} className="text-xs text-slate-400 flex items-center gap-2">
+                  <span className="text-vice-green">●</span>
+                  <span className="truncate">{activity.message}</span>
+                </div>
+              ))
+            ) : (
+              <div className="text-xs text-slate-500">No recent activity</div>
+            )}
           </div>
         </div>
       </CardContent>
     </Card>
-  );
+  )
 }

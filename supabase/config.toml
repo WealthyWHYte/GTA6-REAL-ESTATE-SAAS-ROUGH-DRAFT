@@ -86,12 +86,6 @@ enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
-[edge_functions]
-enabled = true
-# Configure one of the supported Supabase services or add your own custom service.
-# import_map = "./functions/import_map.json"
-# inspects = false
-
 [analytics]
 enabled = false
 # Port to use for Supabase Analytics.

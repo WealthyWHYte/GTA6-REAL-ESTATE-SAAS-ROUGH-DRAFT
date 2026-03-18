@@ -49,12 +49,12 @@ const MissionBriefing = ({ onStartMission }: MissionBriefingProps) => {
           <h2 className="text-3xl font-gta text-vice-pink neon-text text-center mb-8">YOUR CREW</h2>
           <div className="grid md:grid-cols-6 gap-6">
             {[
-              { name: "PIPELINE SCOUT", specialty: "Data processing & opportunity identification", mission: "Find the needles in the haystack", route: "/agent/pipeline-scout" },
-              { name: "MARKET SCOUT", specialty: "Market research, comps, ARV calculation", mission: "Conduct deep market analysis", route: "/agent/market-scout" },
-              { name: "UNDERWRITER", specialty: "Deal vetting & creative finance analysis", mission: "Separate gold from garbage", route: "/agent/underwriter" },
-              { name: "OFFER GENERATOR", specialty: "Personalized offer creation", mission: "Craft irresistible proposals", route: "/agent/offer-generator" },
-              { name: "CONTRACT SPECIALIST", specialty: "Legal document generation", mission: "Bulletproof agreement creation", route: "/agent/contract-specialist" },
-              { name: "EMAIL CLOSER", specialty: "Negotiation & relationship management", mission: "Close deals through communication", route: "/agent/email-closer" }
+              { name: "PIPELINE SCOUT", specialty: "Data processing & list uploads", mission: "Find the needles in the haystack", route: "/agent/pipeline-scout" },
+              { name: "MARKET SCOUT", specialty: "Market research, comps, ARV", mission: "Conduct deep market analysis", route: "/agent/market-scout" },
+              { name: "UNDERWRITER", specialty: "Deal vetting & finance analysis", mission: "Separate gold from garbage", route: "/agent/underwriter" },
+              { name: "CONTRACT SPECIALIST", specialty: "Offers, contracts & legal docs", mission: "Create proposals & agreements", route: "/agent/contract-specialist" },
+              { name: "EMAIL CLOSER", specialty: "Negotiation & communication", mission: "Close deals through email", route: "/agent/email-closer" },
+              { name: "DISPO AGENT", specialty: "Property disposition & buyers", mission: "Exit strategies & profits", route: "/agent/dispo-agent" }
             ].map((agent, index) => (
               <div
                 key={index}

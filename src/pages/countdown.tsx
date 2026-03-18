@@ -52,83 +52,59 @@ export default function CountdownPage() {
   const communityArt = [
     {
       id: 1,
-      title: "",
-      artist: "",
-      image: "/GTA 6 Map.png",
+      title: "GTA 6 Logo",
+      artist: "Community Artist",
+      image: "/Wholesalionaire GTA 6 logo.jpeg",
       likes: 1247,
       comments: 89
     },
     {
       id: 2,
-      title: "",
-      artist: "",
-      image: "/GTA 6 Pic.heic",
+      title: "Function Event",
+      artist: "Community Artist",
+      image: "/Wholesalionaires Function.jpg",
       likes: 892,
       comments: 67
     },
     {
       id: 3,
-      title: "",
-      artist: "",
-      image: "/IMG_0085.png",
+      title: "Cover Art",
+      artist: "Community Artist",
+      image: "/draft_cover.jpg",
       likes: 756,
       comments: 45
     },
     {
       id: 4,
-      title: "",
-      artist: "",
-      image: "/IMG_0995.png",
+      title: "Background",
+      artist: "Community Artist",
+      image: "/wholesalionaire-bg.jpg",
       likes: 634,
       comments: 32
     },
     {
       id: 5,
-      title: "",
-      artist: "",
-      image: "/IMG_1182.png",
+      title: "Art 4138",
+      artist: "Community Artist",
+      image: "/IMG_4138.jpeg",
       likes: 523,
       comments: 28
     },
     {
       id: 6,
-      title: "",
-      artist: "",
-      image: "/IMG_4137.png",
+      title: "Art 4139",
+      artist: "Community Artist",
+      image: "/IMG_4139.jpeg",
       likes: 445,
       comments: 23
     },
     {
       id: 7,
-      title: "",
-      artist: "",
-      image: "/IMG_4138.jpeg",
+      title: "Art 4141",
+      artist: "Community Artist",
+      image: "/IMG_4141.jpeg",
       likes: 389,
       comments: 19
-    },
-    {
-      id: 8,
-      title: "",
-      artist: "",
-      image: "/IMG_4139.jpeg",
-      likes: 567,
-      comments: 34
-    },
-    {
-      id: 9,
-      title: "",
-      artist: "",
-      image: "/IMG_4141.jpeg",
-      likes: 723,
-      comments: 41
-    },
-    {
-      id: 10,
-      title: "",
-      artist: "",
-      image: "/gta6-custom-cover.png",
-      likes: 298,
-      comments: 15
     }
   ];
 
@@ -290,11 +266,11 @@ export default function CountdownPage() {
           </CardHeader>
           <CardContent>
             <div className="relative">
-              <div className="aspect-video bg-muted/20 rounded-lg overflow-hidden mb-4">
+              <div className="h-[400px] bg-muted/20 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
                 <img
                   src={communityArt[currentArtIndex].image}
                   alt={communityArt[currentArtIndex].title}
-                  className="w-full h-full object-cover transition-opacity duration-500"
+                  className="max-w-full max-h-full object-contain transition-opacity duration-500 rounded-lg"
                 />
               </div>
               <div className="text-center">

@@ -1,239 +1,249 @@
 // src/pages/heist-mission/[dataset_id].tsx
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle } from "lucide-react";
-
-interface Dataset {
-  dataset_id: string;
-  name: string;
-  status: string;
-  row_count: number;
-  processed_count: number;
-  error_count: number;
-  created_at: string;
-}
-
-interface Property {
-  property_id: string;
-  property_address: string;
-  city: string;
-  state: string;
-  status: string;
-  list_price: number;
-  created_at: string;
-}
+import { useEffect, useState } from "react"
+import { useParams, useNavigate } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
+import { supabase } from "@/lib/supabase"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { 
+  ArrowLeft, BarChart3, MapPin, DollarSign, 
+  Home, TrendingUp, CheckCircle, AlertCircle, Loader2,
+  ChevronRight
+} from "lucide-react"
 
 export default function HeistMissionPage() {
-  const { dataset_id } = useParams();
-  const navigate = useNavigate();
-  const [mission, setMission] = useState<Dataset | null>(null);
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { dataset_id } = useParams()
+  const navigate = useNavigate()
 
-  // Fetch mission data
-  const fetchMissionData = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+  const { data: mission, isLoading: missionLoading } = useQuery({
+    queryKey: ['mission', dataset_id],
+    queryFn: async () => {
+      if (!dataset_id) return null
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return null
 
-      // Get dataset info - SECURE with account_id
-      const { data: datasetData, error: datasetError } = await supabase
-        .from("datasets")
-        .select("*")
-        .eq("dataset_id", dataset_id)
-        .eq("account_id", user.id)
-        .single();
+      const { data } = await supabase
+        .from('datasets')
+        .select('*')
+        .eq('dataset_id', dataset_id)
+        .eq('account_id', user.id)
+      
+      return data?.[0] || null
+    },
+    enabled: !!dataset_id
+  })
 
-      if (datasetError) throw datasetError;
-      setMission(datasetData);
+  const { data: properties, isLoading: propsLoading } = useQuery({
+    queryKey: ['properties', dataset_id],
+    queryFn: async () => {
+      if (!dataset_id) return []
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
 
-      // Get recent properties - SECURE with account_id
-      const { data: propertiesData, error: propertiesError } = await supabase
-        .from("properties")
-        .select("*")
-        .eq("dataset_id", dataset_id)
-        .eq("account_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(10);
+      const { data } = await supabase
+        .from('properties')
+        .select('*')
+        .eq('dataset_id', dataset_id)
+        .eq('account_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      
+      return data || []
+    },
+    enabled: !!dataset_id
+  })
 
-      if (propertiesError) throw propertiesError;
-      setProperties(propertiesData || []);
+  const formatNumber = (num: number | null) => {
+    if (num === null || num === undefined) return '0'
+    return num.toLocaleString()
+  }
 
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching mission data:", error);
-      setLoading(false);
+  const formatPrice = (price: number | null) => {
+    if (!price) return 'N/A'
+    return `$${price.toLocaleString()}`
+  }
+
+  const getStatusBadge = (status: string) => {
+    const colors: Record<string, string> = {
+      pending: 'bg-yellow-500/20 text-yellow-500 border-yellow-500',
+      scouting: 'bg-blue-500/20 text-blue-500 border-blue-500',
+      researching: 'bg-purple-500/20 text-purple-500 border-purple-500',
+      underwriting: 'bg-orange-500/20 text-orange-500 border-orange-500',
+      offer_generation: 'bg-pink-500/20 text-pink-500 border-pink-500',
+      offer_sent: 'bg-cyan-500/20 text-cyan-500 border-cyan-500',
+      under_contract: 'bg-green-500/20 text-green-500 border-green-500',
+      closed: 'bg-gray-500/20 text-gray-500 border-gray-500'
     }
-  };
+    return (
+      <Badge className={colors[status] || 'bg-gray-500/20'} variant="outline">
+        {status?.replace(/_/g, ' ') || 'PENDING'}
+      </Badge>
+    )
+  }
 
-  // Poll for updates every 5 seconds
-  useEffect(() => {
-    fetchMissionData();
-    const interval = setInterval(fetchMissionData, 5000);
-    return () => clearInterval(interval);
-  }, [dataset_id]);
+  const progress = (mission?.total_properties || mission?.row_count || 0) 
+    ? Math.round(((mission.processed_properties || mission.processed_count || 0) / (mission.total_properties || mission.row_count || 1)) * 100)
+    : 0
 
-  if (loading) {
+  if (missionLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-16 h-16 text-vice-cyan animate-spin mx-auto mb-4" />
-          <p className="text-xl text-vice-cyan">Loading mission data...</p>
-        </div>
+        <Loader2 className="w-16 h-16 animate-spin text-primary" />
       </div>
-    );
+    )
   }
 
   if (!mission) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-vice-orange mx-auto mb-4" />
-          <p className="text-xl text-vice-orange">Mission not found</p>
-          <Button onClick={() => navigate("/mission-briefing")} className="mt-4">
-            Back to Briefing
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Mission Not Found</h1>
+          <p className="text-muted-foreground mb-4">
+            The mission you're looking for doesn't exist or you don't have access.
+          </p>
+          <Button onClick={() => navigate('/active-lists')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Lists
           </Button>
         </div>
       </div>
-    );
+    )
   }
-
-  const progressPercentage = mission.row_count > 0 
-    ? Math.round((mission.processed_count / mission.row_count) * 100)
-    : 0;
-
-  const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { color: string; icon: string }> = {
-      PROCESSING: { color: "border-vice-orange text-vice-orange", icon: "⚙️" },
-      COMPLETED: { color: "border-vice-green text-vice-green", icon: "✅" },
-      FAILED: { color: "border-vice-pink text-vice-pink", icon: "❌" },
-    };
-    const config = statusConfig[status] || statusConfig.PROCESSING;
-    return (
-      <Badge variant="outline" className={config.color}>
-        {config.icon} {status}
-      </Badge>
-    );
-  };
 
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-gta font-black text-transparent bg-gradient-neon bg-clip-text mb-4">
-            🎯 HEIST MISSION
-          </h1>
-          <p className="text-2xl text-vice-cyan font-gta">{mission.name}</p>
-          <div className="mt-4">{getStatusBadge(mission.status)}</div>
+        <div className="flex items-center gap-4 mb-8">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/active-lists')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gta-blue">{mission.name || 'Mission'}</h1>
+            <p className="text-muted-foreground">
+              Uploaded {mission.created_at ? new Date(mission.created_at).toLocaleDateString() : 'N/A'}
+            </p>
+          </div>
         </div>
 
-        {/* Mission Overview */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <Card className="mission-card">
-            <CardHeader>
-              <CardTitle className="text-vice-pink font-gta">TOTAL PROPERTIES</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-5xl font-bold text-vice-cyan">{mission.row_count}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="mission-card">
-            <CardHeader>
-              <CardTitle className="text-vice-orange font-gta">PROCESSED</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-5xl font-bold text-vice-green">{mission.processed_count}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="mission-card">
-            <CardHeader>
-              <CardTitle className="text-vice-yellow font-gta">ERRORS</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-5xl font-bold text-vice-pink">{mission.error_count}</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Progress Bar */}
-        <Card className="mission-card mb-8">
+        {/* Progress */}
+        <Card className="mb-8">
           <CardHeader>
-            <CardTitle className="text-vice-cyan font-gta">MISSION PROGRESS</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" />
+              MISSION PROGRESS
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <Progress value={progressPercentage} className="h-4" />
-              <div className="flex justify-between text-sm">
+              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">
-                  {mission.processed_count} / {mission.row_count} properties analyzed
+                  {formatNumber(mission.processed_properties || mission.processed_count || 0)} / {formatNumber(mission.total_properties || mission.row_count || 0)} properties analyzed
                 </span>
-                <span className="text-vice-cyan font-bold">{progressPercentage}%</span>
+                <span className="font-bold">{progress}%</span>
+              </div>
+              <div className="h-4 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-vice-cyan to-vice-pink transition-all"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* AI Agents Active */}
-        <Card className="mission-card mb-8">
-          <CardHeader>
-            <CardTitle className="text-vice-pink font-gta">🤖 AI AGENTS ACTIVE</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-4 gap-4 mb-8">
+          <Card>
+            <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 text-vice-cyan animate-spin" />
-                <span className="text-vice-cyan">🔍 Scout Agent: Analyzing properties</span>
+                <Home className="w-8 h-8 text-blue-500" />
+                <div>
+                  <p className="text-2xl font-bold">{formatNumber(mission.total_properties || mission.row_count)}</p>
+                  <p className="text-sm text-muted-foreground">Total</p>
+                </div>
               </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 text-vice-orange animate-spin" />
-                <span className="text-vice-orange">💰 Underwriter: Calculating deals</span>
+                <CheckCircle className="w-8 h-8 text-green-500" />
+                <div>
+                  <p className="text-2xl font-bold">{formatNumber(mission.processed_properties || mission.processed_count)}</p>
+                  <p className="text-sm text-muted-foreground">Processed</p>
+                </div>
               </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 text-vice-yellow animate-spin" />
-                <span className="text-vice-yellow">📧 Outreach Agent: Drafting emails</span>
+                <AlertCircle className="w-8 h-8 text-red-500" />
+                <div>
+                  <p className="text-2xl font-bold">{formatNumber(mission.error_count || 0)}</p>
+                  <p className="text-sm text-muted-foreground">Errors</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <DollarSign className="w-8 h-8 text-yellow-500" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {formatPrice(properties?.reduce((sum: number, p: any) => sum + (p.listing_price || p.price || 0), 0))}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Total Value</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Recent Activity */}
-        <Card className="mission-card mb-8">
+        {/* Recent Properties */}
+        <Card>
           <CardHeader>
-            <CardTitle className="text-vice-green font-gta">📊 RECENT ACTIVITY</CardTitle>
+            <CardTitle>RECENT ACTIVITY</CardTitle>
           </CardHeader>
           <CardContent>
-            {properties.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                No properties processed yet...
-              </p>
+            {propsLoading ? (
+              <div className="text-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto" />
+              </div>
+            ) : properties?.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No properties processed yet
+              </div>
             ) : (
               <div className="space-y-4">
-                {properties.map((property) => (
-                  <div
-                    key={property.property_id}
-                    className="flex items-center justify-between p-4 bg-muted rounded-lg border border-vice-cyan/20"
+                {properties?.map((property: any) => (
+                  <div 
+                    key={property.id} 
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                    onClick={() => navigate(`/black-market/${property.id}`)}
                   >
-                    <div>
-                      <p className="font-gta text-vice-cyan">{property.property_address}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {property.city}, {property.state}
-                      </p>
+                    <div className="flex items-center gap-4">
+                      <MapPin className="w-5 h-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{property.address || 'N/A'}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {property.city}, {property.state}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-vice-green font-bold">
-                        ${property.list_price?.toLocaleString() || "N/A"}
-                      </p>
-                      <Badge variant="outline" className="border-vice-green text-vice-green mt-1">
-                        {property.status}
-                      </Badge>
+                    <div className="flex items-center gap-6">
+                      <div className="text-right">
+                        <p className="font-bold">{formatPrice(property.listing_price || property.price)}</p>
+                        {(property.estimated_value || property.arv) && (
+                          <p className="text-sm text-green-500">ARV: {formatPrice(property.estimated_value || property.arv)}</p>
+                        )}
+                      </div>
+                      {getStatusBadge(property.pipeline_status || property.status)}
                     </div>
                   </div>
                 ))}
@@ -242,24 +252,19 @@ export default function HeistMissionPage() {
           </CardContent>
         </Card>
 
-        {/* Action Buttons */}
-        <div className="flex gap-4 justify-center">
-          <Button
-            variant="neon-cyan"
-            size="lg"
-            onClick={() => navigate(`/properties?dataset=${dataset_id}`)}
-          >
-            📋 VIEW ALL PROPERTIES
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => navigate("/mission-briefing")}
-          >
-            ← BACK TO BRIEFING
-          </Button>
-        </div>
+        {/* View All Button */}
+        {properties && properties.length > 0 && (
+          <div className="mt-6 text-center">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate(`/properties?dataset=${dataset_id}`)}
+            >
+              View All Properties
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
-  );
+  )
 }

@@ -8,4 +8,3 @@ export default function CloserAgentPage() {
   // Redirect to the new agent page structure
   navigate("/agent/email-closer", { replace: true });
   return null;
-}

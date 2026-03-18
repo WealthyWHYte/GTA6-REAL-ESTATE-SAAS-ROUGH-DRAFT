@@ -1,7 +1,13 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
+import { Progress } from '@/components/ui/progress'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   Calculator,
   Star,
@@ -9,11 +15,114 @@ import {
   TrendingUp,
   ArrowLeft,
   FileText,
-  Target
-} from "lucide-react";
+  Target,
+  Zap,
+  Building,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  Send,
+  Mail
+} from 'lucide-react'
+
+interface ScoredProperty {
+  property_id: string
+  address: string
+  city?: string
+  state?: string
+  win_win_score: number
+  max_score: number
+  strategy: string
+  offer_price: number
+  offer_percent: number
+  estimated_value?: number
+  reasoning: string
+  recommendation: string
+  factors?: string // JSON string with level1, level2, level3, pain_points, etc.
+}
 
 export default function UnderwriterPage() {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [selectedDeal, setSelectedDeal] = useState<ScoredProperty | null>(null)
+
+  // Fetch property analysis - filtered by account
+  const { data: analysis, isLoading: loadingAnalysis } = useQuery({
+    queryKey: ['property-analysis'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+      const { data } = await supabase
+        .from('property_analysis')
+        .select('*')
+        .eq('account_id', user?.id)
+        .order('win_win_score', { ascending: false })
+      return data as ScoredProperty[] || []
+    }
+  })
+
+  // Fetch offers - filtered by account
+  const { data: offers } = useQuery({
+    queryKey: ['offers'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+      const { data } = await supabase
+        .from('offers')
+        .select('*')
+        .eq('account_id', user?.id)
+        .order('created_at', { ascending: false })
+      return data || []
+    }
+  })
+
+  // Trigger underwriting analysis
+  const handleAnalyze = async () => {
+    setIsAnalyzing(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/underwrite-properties`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          property_ids: []
+        })
+      })
+
+      const result = await response.json()
+      console.log('Underwriting result:', result)
+      
+      if (result.success) {
+        alert(`✅ Underwriting complete! Analyzed ${result.total_analyzed} properties.`)
+      } else {
+        alert(`❌ Underwriting failed: ${result.error}`)
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ['property-analysis'] })
+      queryClient.invalidateQueries({ queryKey: ['properties'] })
+    } catch (error) {
+      console.error('Analysis failed:', error)
+      alert('Failed to analyze properties')
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  // Get stats
+  const stats = {
+    total: analysis?.length || 0,
+    avgScore: analysis?.length 
+      ? (analysis.reduce((sum, p) => sum + p.win_win_score, 0) / analysis.length).toFixed(1)
+      : '0',
+    strongDeals: analysis?.filter(p => p.win_win_score >= 70).length || 0,
+    pipelineValue: analysis
+      ?.filter(p => p.win_win_score >= 50 && p.offer_price)
+      .reduce((sum, p) => sum + (parseFloat(String(p.offer_price)) || 0), 0) || 0
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -25,7 +134,7 @@ export default function UnderwriterPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate("/command-center")}
+              onClick={() => navigate('/command-center')}
               className="border-vice-cyan text-vice-cyan hover:bg-vice-cyan hover:text-background"
             >
               <ArrowLeft className="mr-2 w-4 h-4" />
@@ -38,9 +147,15 @@ export default function UnderwriterPage() {
               <p className="text-vice-cyan font-body">Deal vetting & creative finance analysis</p>
             </div>
           </div>
-          <Badge variant="outline" className="border-muted text-muted-foreground text-lg px-4 py-2">
-            STANDBY
-          </Badge>
+          <Button
+            variant="neon-cyan"
+            size="lg"
+            onClick={handleAnalyze}
+            disabled={isAnalyzing}
+          >
+            <Zap className={`mr-2 w-5 h-5 ${isAnalyzing ? 'animate-spin' : ''}`} />
+            {isAnalyzing ? 'ANALYZING...' : 'RUN ANALYSIS'}
+          </Button>
         </div>
 
         {/* Stats Dashboard */}
@@ -53,7 +168,7 @@ export default function UnderwriterPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-gta text-vice-pink">0</div>
+              <div className="text-3xl font-gta text-vice-pink">{stats.total}</div>
             </CardContent>
           </Card>
 
@@ -65,7 +180,7 @@ export default function UnderwriterPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-gta text-vice-cyan">--/5</div>
+              <div className="text-3xl font-gta text-vice-cyan">{stats.avgScore}/100</div>
             </CardContent>
           </Card>
 
@@ -73,11 +188,11 @@ export default function UnderwriterPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-gta text-vice-orange flex items-center gap-2">
                 <Star className="w-4 h-4" />
-                5-STAR DEALS
+                STRONG DEALS (70+)
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-gta text-vice-orange">0</div>
+              <div className="text-3xl font-gta text-vice-orange">{stats.strongDeals}</div>
             </CardContent>
           </Card>
 
@@ -89,70 +204,290 @@ export default function UnderwriterPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-gta text-vice-green">$0</div>
+              <div className="text-3xl font-gta text-vice-green">
+                ${(stats.pipelineValue / 1000000).toFixed(1)}M
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Main Content Area */}
+        {/* Main Content */}
         <div className="grid lg:grid-cols-3 gap-6">
-
-          {/* Activity Feed */}
+          {/* Deal Queue */}
           <div className="lg:col-span-2">
             <Card className="mission-card">
               <CardHeader>
                 <CardTitle className="font-gta text-vice-pink">DEAL ANALYSIS QUEUE</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-12">
-                  <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-gta text-muted-foreground mb-2">NO DEALS TO ANALYZE</h3>
-                  <p className="text-muted-foreground mb-6">
-                    Pipeline Scout will send vetted properties here for financial analysis
-                  </p>
-                  <Button
-                    variant="neon-cyan"
-                    size="lg"
-                    onClick={() => navigate("/agent/pipeline-scout")}
-                    className="px-8"
-                  >
-                    <Target className="mr-2 w-5 h-5" />
-                    CHECK PIPELINE SCOUT
-                  </Button>
-                </div>
+                {loadingAnalysis ? (
+                  <div className="text-center py-12">
+                    <Zap className="w-12 h-12 text-vice-cyan animate-spin mx-auto mb-4" />
+                    <p className="text-vice-cyan">Loading analysis...</p>
+                  </div>
+                ) : analysis && analysis.length > 0 ? (
+                  <div className="space-y-3">
+                    {analysis.slice(0, 15).map((property) => (
+                      <div 
+                        key={property.property_id}
+                        className="flex items-center justify-between p-4 bg-card/50 rounded-lg border border-border hover:border-vice-cyan transition-colors cursor-pointer"
+                        onClick={() => setSelectedDeal(property)}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <span className="font-gta text-white">{property.address}</span>
+                            <Badge 
+                              className={
+                                property.recommendation === 'STRONG DEAL' 
+                                  ? 'bg-vice-green text-black'
+                                  : property.recommendation === 'GOOD DEAL'
+                                  ? 'bg-vice-orange text-black'
+                                  : 'bg-muted text-muted-foreground'
+                              }
+                            >
+                              {property.recommendation}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Building className="w-3 h-3" />
+                              {property.city}, {property.state}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Target className="w-3 h-3" />
+                              {property.strategy}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" />
+                              ${property.offer_price?.toLocaleString()} ({property.offer_percent}% of list)
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-gta text-vice-cyan">{property.win_win_score}</div>
+                          <div className="text-xs text-muted-foreground">/100</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-xl font-gta text-muted-foreground mb-2">NO ANALYSIS YET</h3>
+                    <p className="text-muted-foreground mb-6">
+                      Click "RUN ANALYSIS" to score your properties
+                    </p>
+                    <Button
+                      variant="neon-cyan"
+                      size="lg"
+                      onClick={handleAnalyze}
+                      className="px-8"
+                    >
+                      <Zap className="mr-2 w-5 h-5" />
+                      SCORE PROPERTIES
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Configuration Panel */}
+          {/* Configuration */}
           <div>
-            <Card className="mission-card">
+            <Card className="mission-card mb-6">
               <CardHeader>
                 <CardTitle className="font-gta text-vice-cyan">ANALYSIS CRITERIA</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="text-sm text-muted-foreground">
-                  <p className="mb-2">Scoring Parameters:</p>
-                  <ul className="space-y-1 text-xs">
-                    <li>• Cash flow analysis</li>
-                    <li>• Risk assessment</li>
-                    <li>• Market comparables</li>
-                    <li>• Financing options</li>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground mb-2">Scoring Factors:</p>
+                  <ul className="space-y-1 text-xs text-muted-foreground">
+                    <li className="flex items-center gap-2">
+                      <Star className="w-3 h-3 text-vice-pink" />
+                      Equity Position (0-4 pts)
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Clock className="w-3 h-3 text-vice-pink" />
+                      Days on Market (0-3 pts)
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Building className="w-3 h-3 text-vice-pink" />
+                      Financing Type (0-2 pts)
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <DollarSign className="w-3 h-3 text-vice-pink" />
+                      Price Discount (0-2 pts)
+                    </li>
                   </ul>
                 </div>
 
                 <div className="pt-4 border-t border-border">
                   <p className="text-sm text-muted-foreground mb-2">Next Agent:</p>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-vice-orange" />
-                    <span className="text-sm font-gta text-vice-orange">OFFER GENERATOR</span>
-                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full border-vice-orange text-vice-orange hover:bg-vice-orange hover:text-black"
+                    onClick={() => navigate('/agent/email-closer')}
+                  >
+                    <Send className="mr-2 w-4 h-4" />
+                    EMAIL CLOSER
+                  </Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Stats */}
+            <Card className="mission-card">
+              <CardHeader>
+                <CardTitle className="font-gta text-vice-green">TOP STRATEGIES</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {analysis && analysis.length > 0 ? (
+                  <div className="space-y-2">
+                    {Object.entries(
+                      analysis.reduce((acc, p) => {
+                        acc[p.strategy] = (acc[p.strategy] || 0) + 1
+                        return acc
+                      }, {} as Record<string, number>)
+                    )
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 4)
+                      .map(([strategy, count]) => (
+                        <div key={strategy} className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">{strategy}</span>
+                          <span className="font-gta text-vice-cyan">{count}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Run analysis to see strategies</p>
+                )}
               </CardContent>
             </Card>
           </div>
         </div>
+
+        {/* Deal Details Modal */}
+        <Dialog open={!!selectedDeal} onOpenChange={() => setSelectedDeal(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-gta text-vice-cyan text-xl">
+                {selectedDeal?.address}
+              </DialogTitle>
+            </DialogHeader>
+            
+            {selectedDeal && (() => {
+              // Format: "l1_val|l2_val|l3_val|score|strategy" (values in thousands)
+              const parts = selectedDeal.factors ? selectedDeal.factors.split('|') : []
+              const l1k = parseInt(parts[0]) || 0
+              const l2k = parseInt(parts[1]) || 0
+              const l3k = parseInt(parts[2]) || 0
+              const score = parseInt(parts[3]) || selectedDeal.win_win_score
+              const strategy = parts[4] || selectedDeal.strategy
+              
+              const listingPrice = selectedDeal.offer_price / (selectedDeal.offer_percent / 100)
+              const level1 = { 
+                offer_price: l1k * 1000 || listingPrice * 0.7,
+                down_payment: Math.round(listingPrice * 0.07),
+                interest_rate: 5,
+                term_years: 40,
+                monthly_payment: Math.round(listingPrice * 0.63 * 0.005),
+                score: score - 10
+              }
+              const level2 = { 
+                offer_price: l2k * 1000 || listingPrice * 0.7,
+                close_days: 7,
+                score: score - 15
+              }
+              const level3 = { 
+                offer_price: l3k * 1000 || listingPrice,
+                down_payment: Math.round(listingPrice * 0.03),
+                interest_rate: 3,
+                term_years: 50,
+                monthly_payment: Math.round(listingPrice * 0.97 * 0.0025),
+                score: score + 10
+              }
+              
+              return (
+                <div className="space-y-6">
+                  {/* Score */}
+                  <div className="text-center p-4 bg-slate-800 rounded-lg">
+                    <div className="text-4xl font-gta text-vice-cyan">{selectedDeal.win_win_score}</div>
+                    <div className="text-sm text-muted-foreground">Win-Win Score / 100</div>
+                    <Badge className="mt-2 bg-vice-green text-black">{selectedDeal.strategy}</Badge>
+                  </div>
+                  
+                  {/* 3 Levels */}
+                  <div className="space-y-4">
+                    <h3 className="font-gta text-vice-pink">NEGOTIATION LEVELS</h3>
+                    
+                    {/* Level 1 */}
+                    <div className="p-4 border border-vice-orange rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-bold text-vice-orange">LEVEL 1: 70% with Terms</span>
+                        <Badge>{level1?.score || 'N/A'}/100</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>Offer: <span className="text-vice-cyan">${(level1?.offer_price || 0).toLocaleString()}</span></div>
+                        <div>Down: <span className="text-vice-cyan">${(level1?.down_payment || 0).toLocaleString()}</span></div>
+                        <div>Rate: <span className="text-vice-cyan">{level1?.interest_rate || 5}%</span></div>
+                        <div>Term: <span className="text-vice-cyan">{level1?.term_years || 40}yr</span></div>
+                        <div>Monthly: <span className="text-vice-cyan">${Math.round(level1?.monthly_payment || 0).toLocaleString()}</span></div>
+                        <div>Balloon: <span className="text-vice-cyan">{level1?.balloon_years || 10}yr</span></div>
+                      </div>
+                    </div>
+                    
+                    {/* Level 2 */}
+                    <div className="p-4 border border-blue-500 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-bold text-blue-400">LEVEL 2: 70% Cash</span>
+                        <Badge variant="outline">{level2?.score || 'N/A'}/100</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>Offer: <span className="text-vice-cyan">${(level2?.offer_price || 0).toLocaleString()}</span></div>
+                        <div>Close: <span className="text-vice-cyan">{level2?.close_days || 7} days</span></div>
+                      </div>
+                    </div>
+                    
+                    {/* Level 3 */}
+                    <div className="p-4 border border-vice-green rounded-lg bg-vice-green/10">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-bold text-vice-green">LEVEL 3: 100% Full Price ⭐</span>
+                        <Badge className="bg-vice-green text-black">{level3?.score || 'N/A'}/100</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>Offer: <span className="text-vice-cyan">${(level3?.offer_price || 0).toLocaleString()}</span></div>
+                        <div>Down: <span className="text-vice-cyan">${(level3?.down_payment || 0).toLocaleString()}</span></div>
+                        <div>Rate: <span className="text-vice-cyan">{level3?.interest_rate || 3}%</span></div>
+                        <div>Term: <span className="text-vice-cyan">{level3?.term_years || 50}yr</span></div>
+                        <div>Monthly: <span className="text-vice-cyan">${Math.round(level3?.monthly_payment || 0).toLocaleString()}</span></div>
+                        <div>Balloon: <span className="text-vice-cyan">{level3?.balloon_years || 10}yr</span></div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Reasoning */}
+                  <div>
+                    <h4 className="font-gta text-vice-cyan mb-2">📋 RECOMMENDATION</h4>
+                    <p className="text-sm">{selectedDeal.reasoning}</p>
+                  </div>
+                  
+                  <Button 
+                    className="w-full bg-vice-cyan text-black hover:bg-vice-cyan/80"
+                    onClick={() => {
+                      setSelectedDeal(null)
+                      navigate('/agent/email-closer')
+                    }}
+                  >
+                    <Mail className="mr-2 w-4 h-4" />
+                    GENERATE EMAIL FOR THIS DEAL
+                  </Button>
+                </div>
+              )
+            })()}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
-  );
+  )
 }

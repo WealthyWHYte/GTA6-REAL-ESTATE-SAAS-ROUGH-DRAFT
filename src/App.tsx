@@ -27,15 +27,29 @@ import FollowUpQueuePage from "./pages/follow-up-queue";
 import TopPropertyTargetsPage from "./pages/top-property-targets";
 import PortfolioOverviewPage from "./pages/portfolio-overview";
 import ActiveListsPage from "./pages/active-lists";
+import PropertiesPage from "./pages/properties";
+import KnowledgeBasePage from "./pages/knowledge-base";
 import WholesaleFeesPage from "./pages/wholesale-fees";
 import SellerClosingsPage from "./pages/seller-closings";
 import AcquisitionFeesPage from "./pages/acquisition-fees";
 import PipelineScoutPage from "./pages/agents/pipeline-scout";
+import MarketScoutPage from "./pages/agents/market-scout";
 import UnderwriterPage from "./pages/agents/underwriter";
-import OfferGeneratorPage from "./pages/agents/offer-generator";
 import ContractSpecialistPage from "./pages/agents/contract-specialist";
 import EmailCloserPage from "./pages/agents/email-closer";
+import DispoAgentPage from "./pages/agents/dispo-agent";
+import OfferGeneratorPage from "./pages/agents/offer-generator";
+import TrainingDashboard from "./pages/training-dashboard";
 import GTAMoneyBar from "@/components/GTAMoneyBar";
+import EmailSenderPage from "./pages/email-sender";
+import SettingsPage from "./pages/settings";
+
+// Courier imports
+import CourierLoginPage from "./pages/courier/login";
+import CourierDashboardPage from "./pages/courier/dashboard";
+import DriverPortalPage from "./pages/courier/driver-portal";
+import ShipperPortalPage from "./pages/courier/shipper-portal";
+import AIAgentsPage from "./pages/courier/ai-agents";
 
 const queryClient = new QueryClient();
 
@@ -84,7 +98,9 @@ const App = () => (
           {/* Public Routes */}
           <Route path="/" element={<CountdownPage />} />
           <Route path="/countdown" element={<CountdownPage />} />
+          <Route path="/dashboard" element={<Navigate to="/mission-briefing" replace />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/coming-soon" element={<ComingSoonPage />} />
           <Route path="/black-market" element={<BlackMarketPage />} />
@@ -151,6 +167,19 @@ const App = () => (
             }
           />
 
+          {/* Email Sender Route */}
+          <Route
+            path="/send-offers"
+            element={
+              <ProtectedRoute>
+                <>
+                  <GTAMoneyBar />
+                  <EmailSenderPage />
+                </>
+              </ProtectedRoute>
+            }
+          />
+
           {/* Agent Routes */}
           <Route
             path="/agent/pipeline-scout"
@@ -177,12 +206,12 @@ const App = () => (
           />
 
           <Route
-            path="/agent/offer-generator"
+            path="/agent/market-scout"
             element={
               <ProtectedRoute>
                 <>
                   <GTAMoneyBar />
-                  <OfferGeneratorPage />
+                  <MarketScoutPage />
                 </>
               </ProtectedRoute>
             }
@@ -201,12 +230,48 @@ const App = () => (
           />
 
           <Route
+            path="/agent/training"
+            element={
+              <ProtectedRoute>
+                <>
+                  <GTAMoneyBar />
+                  <TrainingDashboard />
+                </>
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
             path="/agent/email-closer"
             element={
               <ProtectedRoute>
                 <>
                   <GTAMoneyBar />
                   <EmailCloserPage />
+                </>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/agent/dispo-agent"
+            element={
+              <ProtectedRoute>
+                <>
+                  <GTAMoneyBar />
+                  <DispoAgentPage />
+                </>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/agent/offer-generator"
+            element={
+              <ProtectedRoute>
+                <>
+                  <GTAMoneyBar />
+                  <OfferGeneratorPage />
                 </>
               </ProtectedRoute>
             }
@@ -286,6 +351,30 @@ const App = () => (
           />
 
           <Route
+            path="/properties"
+            element={
+              <ProtectedRoute>
+                <>
+                  <GTAMoneyBar />
+                  <PropertiesPage />
+                </>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <>
+                  <GTAMoneyBar />
+                  <SettingsPage />
+                </>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/wholesale-fees"
             element={
               <ProtectedRoute>
@@ -334,7 +423,63 @@ const App = () => (
             }
           />
 
-          {/* 404 Catch-all */}
+          {/* ============================================ */}
+          {/* COURIER ROUTES */}
+          {/* ============================================ */}
+          
+          {/* Public Courier Routes */}
+          <Route path="/courier/login" element={<CourierLoginPage />} />
+          
+          {/* Protected Courier Routes */}
+          <Route
+            path="/courier-dashboard"
+            element={
+              <ProtectedRoute>
+                <CourierDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/courier/driver"
+            element={
+              <ProtectedRoute>
+                <DriverPortalPage />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/courier/shipper"
+            element={
+              <ProtectedRoute>
+                <ShipperPortalPage />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/courier/ai-agents"
+            element={
+              <ProtectedRoute>
+                <AIAgentsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Knowledge Base */}
+          <Route
+            path="/knowledge-base"
+            element={
+              <ProtectedRoute>
+                <>
+                  <GTAMoneyBar />
+                  <KnowledgeBasePage />
+                </>
+              </ProtectedRoute>
+            }
+          />
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
