@@ -20,3 +20,5 @@ __pycache__/
 supabase/.temp/
 credentials.json
 supabase/functions/_shared/ai-router.ts
+client_secret_*.json
+analyze.js
