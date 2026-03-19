@@ -39,6 +39,22 @@ interface ScoredProperty {
   reasoning: string
   recommendation: string
   factors?: string // JSON string with level1, level2, level3, pain_points, etc.
+  // New 3-level columns from property_analysis
+  level1_offer_price?: number
+  level1_entry_fee?: number
+  level1_monthly_payment?: number
+  level2_offer_price?: number
+  level2_entry_fee?: number
+  level3_offer_price?: number
+  level3_entry_fee?: number
+  level3_monthly_payment?: number
+  level3_assume_mortgage?: number
+  level3_seller_carry_amount?: number
+  recommended_level?: number
+  recommended_reason?: string
+  comps_count?: number
+  comps_avg_price?: number
+  comps_data?: any
 }
 
 export default function UnderwriterPage() {
@@ -46,6 +62,17 @@ export default function UnderwriterPage() {
   const queryClient = useQueryClient()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [selectedDeal, setSelectedDeal] = useState<ScoredProperty | null>(null)
+
+  // Navigate to email closer with selected level
+  const selectLevel = (level: 1 | 2 | 3) => {
+    navigate('/agents/email-closer', {
+      state: {
+        property: selectedDeal,
+        analysis: selectedDeal,
+        selected_level: level
+      }
+    })
+  }
 
   // Fetch property analysis - filtered by account
   const { data: analysis, isLoading: loadingAnalysis } = useQuery({
@@ -55,7 +82,21 @@ export default function UnderwriterPage() {
       if (!user) return []
       const { data } = await supabase
         .from('property_analysis')
-        .select('*')
+        .select(`
+          *,
+          level1_offer_price,
+          level1_entry_fee,
+          level1_monthly_payment,
+          level2_offer_price,
+          level2_entry_fee,
+          level3_offer_price,
+          level3_entry_fee,
+          level3_monthly_payment,
+          level3_assume_mortgage,
+          level3_seller_carry_amount,
+          recommended_level,
+          recommended_reason
+        `)
         .eq('account_id', user?.id)
         .order('win_win_score', { ascending: false })
       return data as ScoredProperty[] || []
@@ -377,37 +418,31 @@ export default function UnderwriterPage() {
             </DialogHeader>
             
             {selectedDeal && (() => {
-              // Format: "l1_val|l2_val|l3_val|score|strategy" (values in thousands)
-              const parts = selectedDeal.factors ? selectedDeal.factors.split('|') : []
-              const l1k = parseInt(parts[0]) || 0
-              const l2k = parseInt(parts[1]) || 0
-              const l3k = parseInt(parts[2]) || 0
-              const score = parseInt(parts[3]) || selectedDeal.win_win_score
-              const strategy = parts[4] || selectedDeal.strategy
-              
+              // Use actual database values for 3 levels
               const listingPrice = selectedDeal.offer_price / (selectedDeal.offer_percent / 100)
-              const level1 = { 
-                offer_price: l1k * 1000 || listingPrice * 0.7,
-                down_payment: Math.round(listingPrice * 0.07),
-                interest_rate: 5,
-                term_years: 40,
-                monthly_payment: Math.round(listingPrice * 0.63 * 0.005),
-                score: score - 10
+
+              const level1 = {
+                offer_price: selectedDeal.level1_offer_price || listingPrice * 0.7,
+                entry_fee: selectedDeal.level1_entry_fee || 0,
+                monthly_payment: selectedDeal.level1_monthly_payment || 0,
+                score: selectedDeal.win_win_score - 10
               }
-              const level2 = { 
-                offer_price: l2k * 1000 || listingPrice * 0.7,
-                close_days: 7,
-                score: score - 15
+              const level2 = {
+                offer_price: selectedDeal.level2_offer_price || listingPrice * 0.7,
+                entry_fee: selectedDeal.level2_entry_fee || 0,
+                score: selectedDeal.win_win_score - 15
               }
-              const level3 = { 
-                offer_price: l3k * 1000 || listingPrice,
-                down_payment: Math.round(listingPrice * 0.03),
-                interest_rate: 3,
-                term_years: 50,
-                monthly_payment: Math.round(listingPrice * 0.97 * 0.0025),
-                score: score + 10
+              const level3 = {
+                offer_price: selectedDeal.level3_offer_price || listingPrice,
+                entry_fee: selectedDeal.level3_entry_fee || 0,
+                monthly_payment: selectedDeal.level3_monthly_payment || 0,
+                assume_mortgage: selectedDeal.level3_assume_mortgage || 0,
+                seller_carry: selectedDeal.level3_seller_carry_amount || 0,
+                score: selectedDeal.win_win_score + 10
               }
-              
+
+              const recommendedLevel = selectedDeal.recommended_level || 3
+
               return (
                 <div className="space-y-6">
                   {/* Score */}
@@ -415,28 +450,36 @@ export default function UnderwriterPage() {
                     <div className="text-4xl font-gta text-vice-cyan">{selectedDeal.win_win_score}</div>
                     <div className="text-sm text-muted-foreground">Win-Win Score / 100</div>
                     <Badge className="mt-2 bg-vice-green text-black">{selectedDeal.strategy}</Badge>
+                    {selectedDeal.recommended_reason && (
+                      <p className="text-xs text-muted-foreground mt-2">{selectedDeal.recommended_reason}</p>
+                    )}
                   </div>
-                  
-                  {/* 3 Levels */}
+
+                  {/* 3 Levels Tabs */}
                   <div className="space-y-4">
                     <h3 className="font-gta text-vice-pink">NEGOTIATION LEVELS</h3>
-                    
+
                     {/* Level 1 */}
                     <div className="p-4 border border-vice-orange rounded-lg">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="font-bold text-vice-orange">LEVEL 1: 70% with Terms</span>
+                        <span className="font-bold text-vice-orange">LEVEL 1: 70% + Terms</span>
                         <Badge>{level1?.score || 'N/A'}/100</Badge>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>Offer: <span className="text-vice-cyan">${(level1?.offer_price || 0).toLocaleString()}</span></div>
-                        <div>Down: <span className="text-vice-cyan">${(level1?.down_payment || 0).toLocaleString()}</span></div>
-                        <div>Rate: <span className="text-vice-cyan">{level1?.interest_rate || 5}%</span></div>
-                        <div>Term: <span className="text-vice-cyan">{level1?.term_years || 40}yr</span></div>
+                        <div>Entry Fee: <span className="text-vice-cyan">${(level1?.entry_fee || 0).toLocaleString()}</span></div>
                         <div>Monthly: <span className="text-vice-cyan">${Math.round(level1?.monthly_payment || 0).toLocaleString()}</span></div>
-                        <div>Balloon: <span className="text-vice-cyan">{level1?.balloon_years || 10}yr</span></div>
+                        <div>Structure: <span className="text-vice-cyan">Seller Finance</span></div>
                       </div>
+                      <Button
+                        size="sm"
+                        className="w-full mt-3"
+                        onClick={() => selectLevel(1)}
+                      >
+                        Generate Email - Level 1
+                      </Button>
                     </div>
-                    
+
                     {/* Level 2 */}
                     <div className="p-4 border border-blue-500 rounded-lg">
                       <div className="flex justify-between items-center mb-2">
@@ -445,43 +488,48 @@ export default function UnderwriterPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>Offer: <span className="text-vice-cyan">${(level2?.offer_price || 0).toLocaleString()}</span></div>
-                        <div>Close: <span className="text-vice-cyan">{level2?.close_days || 7} days</span></div>
+                        <div>Entry Fee: <span className="text-vice-cyan">${(level2?.entry_fee || 0).toLocaleString()}</span></div>
+                        <div>Monthly: <span className="text-vice-cyan">$0 (Cash)</span></div>
+                        <div>Structure: <span className="text-vice-cyan">All Cash</span></div>
                       </div>
+                      <Button
+                        size="sm"
+                        className="w-full mt-3"
+                        onClick={() => selectLevel(2)}
+                      >
+                        Generate Email - Level 2
+                      </Button>
                     </div>
-                    
-                    {/* Level 3 */}
+
+                    {/* Level 3 - Recommended */}
                     <div className="p-4 border border-vice-green rounded-lg bg-vice-green/10">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="font-bold text-vice-green">LEVEL 3: 100% Full Price ⭐</span>
+                        <span className="font-bold text-vice-green">LEVEL 3: 100% Full Price + Terms {selectedDeal.recommended_level === 3 ? '⭐' : ''}</span>
                         <Badge className="bg-vice-green text-black">{level3?.score || 'N/A'}/100</Badge>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>Offer: <span className="text-vice-cyan">${(level3?.offer_price || 0).toLocaleString()}</span></div>
-                        <div>Down: <span className="text-vice-cyan">${(level3?.down_payment || 0).toLocaleString()}</span></div>
-                        <div>Rate: <span className="text-vice-cyan">{level3?.interest_rate || 3}%</span></div>
-                        <div>Term: <span className="text-vice-cyan">{level3?.term_years || 50}yr</span></div>
+                        <div>Entry Fee: <span className="text-vice-cyan">${(level3?.entry_fee || 0).toLocaleString()}</span></div>
                         <div>Monthly: <span className="text-vice-cyan">${Math.round(level3?.monthly_payment || 0).toLocaleString()}</span></div>
-                        <div>Balloon: <span className="text-vice-cyan">{level3?.balloon_years || 10}yr</span></div>
+                        <div>Assume Mortgage: <span className="text-vice-cyan">${(level3?.assume_mortgage || 0).toLocaleString()}</span></div>
+                        <div>Seller Carries: <span className="text-vice-cyan">${(level3?.seller_carry || 0).toLocaleString()}</span></div>
+                        <div>Structure: <span className="text-vice-cyan">Subject-To + Seller Finance</span></div>
                       </div>
+                      <Button
+                        size="sm"
+                        className="w-full mt-3"
+                        onClick={() => selectLevel(3)}
+                      >
+                        Generate Email - Level 3
+                      </Button>
                     </div>
                   </div>
-                  
+
                   {/* Reasoning */}
                   <div>
                     <h4 className="font-gta text-vice-cyan mb-2">📋 RECOMMENDATION</h4>
                     <p className="text-sm">{selectedDeal.reasoning}</p>
                   </div>
-                  
-                  <Button 
-                    className="w-full bg-vice-cyan text-black hover:bg-vice-cyan/80"
-                    onClick={() => {
-                      setSelectedDeal(null)
-                      navigate('/agent/email-closer')
-                    }}
-                  >
-                    <Mail className="mr-2 w-4 h-4" />
-                    GENERATE EMAIL FOR THIS DEAL
-                  </Button>
                 </div>
               )
             })()}

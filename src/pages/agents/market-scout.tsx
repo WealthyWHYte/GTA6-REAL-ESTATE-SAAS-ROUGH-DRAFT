@@ -48,6 +48,7 @@ export default function MarketScoutPage() {
         .from('properties')
         .select('*')
         .eq('account_id', user?.id)
+        .limit(1000)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data || []
