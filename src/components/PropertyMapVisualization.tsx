@@ -91,7 +91,6 @@ const cityCoordinates: Record<string, [number, number]> = {
   'EL SEGUNDO': [-118.4165, 33.9192],
   'MARINA DEL REY': [-118.4518, 33.9802],
   'PLAYA DEL REY': [-118.4617, 33.9575],
-  'CULVER CITY': [-118.3965, 34.0211],
   'SAN GABRIEL': [-118.0940, 34.0972],
   'ALHAMBRA': [-118.1270, 34.0951],
   'SOUTH PASADENA': [-118.1503, 34.1161],

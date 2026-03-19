@@ -65,7 +65,7 @@ export default function UnderwriterPage() {
 
   // Navigate to email closer with selected level
   const selectLevel = (level: 1 | 2 | 3) => {
-    navigate('/agents/email-closer', {
+    navigate('/agent/email-closer', {
       state: {
         property: selectedDeal,
         analysis: selectedDeal,
