@@ -48,7 +48,8 @@ export default function MarketScoutPage() {
         .from('properties')
         .select('*')
         .eq('account_id', user?.id)
-        .limit(1000)
+        .range(0,999)
+	console.log("TOTAL PROPERTIES:", data?.length)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data || []
@@ -83,9 +84,9 @@ export default function MarketScoutPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            city: firstCity,
-            state: state,
-            property_ids: properties.slice(0, 50).map(p => p.id)
+            // city removed - analyze all properties
+            // state removed
+            property_ids: properties.map(p => p.id)
           }),
         }
       )
