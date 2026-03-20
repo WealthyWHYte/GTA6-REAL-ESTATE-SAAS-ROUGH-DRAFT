@@ -129,17 +129,61 @@ export default function MarketScoutPage() {
     return fallback
   }
   
+  // REAL MATH — computed directly from properties data, zero AI guessing
+  const computedStats = React.useMemo(() => {
+    if (!properties || properties.length === 0) return null
+    const prices = properties.map((p: any) => p.listing_price || 0).filter((v: number) => v > 0)
+    const equities = properties.map((p: any) => p.estimated_equity || 0).filter((v: number) => v > 0)
+    const doms = properties.map((p: any) => p.days_on_market || 0)
+    const sqfts = properties.map((p: any) => p.sqft || 0).filter((v: number) => v > 0)
+    const years = properties.map((p: any) => p.year_built || 0).filter((v: number) => v > 1900)
+    const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0
+    const sorted = [...prices].sort((a, b) => a - b)
+    const median = sorted[Math.floor(sorted.length / 2)] || 0
+    return {
+      total: properties.length,
+      avg_price: avg(prices),
+      median_price: median,
+      avg_equity: avg(equities),
+      avg_dom: avg(doms),
+      avg_sqft: avg(sqfts),
+      avg_year: avg(years),
+      avg_ppsqft: prices.length && sqfts.length ? Math.round(avg(prices) / avg(sqfts)) : 0,
+      high_equity: properties.filter((p: any) => (p.estimated_equity || 0) > (p.listing_price || 1) * 0.3).length,
+      motivated: properties.filter((p: any) => (p.days_on_market || 0) >= 90).length,
+      free_clear: properties.filter((p: any) => !p.mortgage_balance || p.mortgage_balance === 0).length,
+      subject_to: properties.filter((p: any) => (p.mortgage_balance || 0) > 0 && (p.estimated_equity || 0) > 0).length,
+      price_buckets: [
+        { label: 'Under $500K', count: properties.filter((p: any) => (p.listing_price || 0) < 500000).length },
+        { label: '$500K-$1M', count: properties.filter((p: any) => (p.listing_price || 0) >= 500000 && (p.listing_price || 0) < 1000000).length },
+        { label: '$1M-$2M', count: properties.filter((p: any) => (p.listing_price || 0) >= 1000000 && (p.listing_price || 0) < 2000000).length },
+        { label: '$2M+', count: properties.filter((p: any) => (p.listing_price || 0) >= 2000000).length },
+      ],
+      equity_buckets: [
+        { label: 'No Equity', count: properties.filter((p: any) => (p.estimated_equity || 0) <= 0).length },
+        { label: 'Low <20%', count: properties.filter((p: any) => { const e = (p.estimated_equity||0)/(p.listing_price||1); return e > 0 && e < 0.2 }).length },
+        { label: 'Good 20-40%', count: properties.filter((p: any) => { const e = (p.estimated_equity||0)/(p.listing_price||1); return e >= 0.2 && e < 0.4 }).length },
+        { label: 'High 40%+', count: properties.filter((p: any) => { const e = (p.estimated_equity||0)/(p.listing_price||1); return e >= 0.4 }).length },
+      ],
+      dom_buckets: [
+        { label: '0-30 days', count: properties.filter((p: any) => (p.days_on_market || 0) <= 30).length },
+        { label: '31-90 days', count: properties.filter((p: any) => (p.days_on_market || 0) > 30 && (p.days_on_market || 0) <= 90).length },
+        { label: '90+ days', count: properties.filter((p: any) => (p.days_on_market || 0) > 90).length },
+      ]
+    }
+  }, [properties])
+
   const stats = {
-    total_properties: getField('total_properties', properties?.length || 0),
-    avg_listing_price: getField('avg_listing_price', 0),
-    avg_equity: getField('avg_equity', 0),
-    avg_days_on_market: getField('avg_days_on_market', 0)
+    total_properties: computedStats?.total || properties?.length || 0,
+    avg_listing_price: computedStats?.avg_price || 0,
+    avg_equity: computedStats?.avg_equity || 0,
+    avg_days_on_market: computedStats?.avg_dom || 0
   }
   const segments = {
-    high_equity: getField('high_equity_count', 0),
-    motivated: getField('motivated_count', 0),
-    free_clear: getField('free_clear_count', 0),
-    subject_to_viable: getField('subject_to_viable', 0)
+    high_equity: computedStats?.high_equity || 0,
+    motivated: computedStats?.motivated || 0,
+    free_clear: computedStats?.free_clear || 0,
+    subject_to_viable: computedStats?.subject_to || 0
   }
   const primaryStrategy = getField('primary_strategy', 'Wholesale')
   const secondaryStrategy = getField('secondary_strategy', 'Lease Option')
