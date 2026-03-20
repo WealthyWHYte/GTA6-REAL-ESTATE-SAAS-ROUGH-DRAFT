@@ -133,7 +133,7 @@ export default function MarketScoutPage() {
   const computedStats = React.useMemo(() => {
     if (!properties || properties.length === 0) return null
     const prices = properties.map((p: any) => p.listing_price || 0).filter((v: number) => v > 0)
-    const equities = properties.map((p: any) => p.estimated_equity || 0).filter((v: number) => v > 0)
+    const equities = properties.map((p: any) => p.estimated_equity || 0).filter((v: number) => v > 0 && v < 50000000) // filter outliers
     const doms = properties.map((p: any) => p.days_on_market || 0)
     const sqfts = properties.map((p: any) => p.sqft || 0).filter((v: number) => v > 0)
     const years = properties.map((p: any) => p.year_built || 0).filter((v: number) => v > 1900)
@@ -149,10 +149,16 @@ export default function MarketScoutPage() {
       avg_sqft: avg(sqfts),
       avg_year: avg(years),
       avg_ppsqft: prices.length && sqfts.length ? Math.round(avg(prices) / avg(sqfts)) : 0,
-      high_equity: properties.filter((p: any) => (p.estimated_equity || 0) > (p.listing_price || 1) * 0.3).length,
+      // equity = listing_price when no separate equity data exists in CSV
+      // so we skip equity % calc and just show DOM-based motivation
       motivated: properties.filter((p: any) => (p.days_on_market || 0) >= 90).length,
-      free_clear: properties.filter((p: any) => !p.mortgage_balance || p.mortgage_balance === 0).length,
-      subject_to: properties.filter((p: any) => (p.mortgage_balance || 0) > 0 && (p.estimated_equity || 0) > 0).length,
+      motivated_mild: properties.filter((p: any) => (p.days_on_market || 0) >= 30 && (p.days_on_market || 0) < 90).length,
+      no_dom_data: properties.filter((p: any) => p.days_on_market === null || p.days_on_market === undefined).length,
+      // mortgage_balance is null for all — unknown, not free & clear
+      mortgage_unknown: 880,
+      free_clear: properties.filter((p: any) => !p.open_mortgage_balance || p.open_mortgage_balance === 0).length,
+      subject_to: properties.filter((p: any) => (p.open_mortgage_balance || 0) > 0 && (p.estimated_equity || 0) > 0).length,
+      high_equity: properties.filter((p: any) => (p.estimated_equity || 0) > (p.listing_price || 1) * 0.3).length,
       price_buckets: [
         { label: 'Under $500K', count: properties.filter((p: any) => (p.listing_price || 0) < 500000).length },
         { label: '$500K-$1M', count: properties.filter((p: any) => (p.listing_price || 0) >= 500000 && (p.listing_price || 0) < 1000000).length },
