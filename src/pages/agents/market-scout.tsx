@@ -1,5 +1,6 @@
 // Market Scout Agent - Shows market intelligence from uploaded property lists
 
+import React from 'react'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -49,7 +50,7 @@ export default function MarketScoutPage() {
         .select('*')
         .eq('account_id', user?.id)
         .range(0,999)
-	console.log("TOTAL PROPERTIES:", data?.length)
+	
         .order('created_at', { ascending: false })
       if (error) throw error
       return data || []
@@ -86,7 +87,7 @@ export default function MarketScoutPage() {
           body: JSON.stringify({
             // city removed - analyze all properties
             // state removed
-            property_ids: properties.map(p => p.id)
+            property_ids: []
           }),
         }
       )
@@ -146,8 +147,48 @@ export default function MarketScoutPage() {
     temp: getField('market_context', 'Moderate'),
     grade: getField('investment_grade', 'B')
   }
-  const topCities = getField('top_cities', []) || []
+  const topCities = properties && properties.length > 0
+    ? Object.entries(
+        properties.reduce((acc: any, p: any) => {
+          const city = p.city || 'Unknown'
+          acc[city] = (acc[city] || 0) + 1
+          return acc
+        }, {})
+      )
+        .map(([city, count]) => ({ city, count }))
+        .sort((a: any, b: any) => (b.count as number) - (a.count as number))
+        .slice(0, 5)
+    : getField('top_cities', []) || []
   const filters = getField('recommended_filters', {}) || {}
+
+  // Compute real buy box from properties
+  const buyBox = properties && properties.length > 0 ? (() => {
+    const prices = properties.map((p: any) => p.listing_price || 0).filter((v: number) => v > 0)
+    const sqfts = properties.map((p: any) => p.sqft || 0).filter((v: number) => v > 0)
+    const beds = properties.map((p: any) => p.bedrooms || 0).filter((v: number) => v > 0)
+    const baths = properties.map((p: any) => p.bathrooms || 0).filter((v: number) => v > 0)
+    const years = properties.map((p: any) => p.year_built || 0).filter((v: number) => v > 1900)
+    const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0
+    const sorted = [...prices].sort((a, b) => a - b)
+    const median = sorted[Math.floor(sorted.length / 2)] || 0
+    const avgSqft = avg(sqfts)
+    const avgBeds = avg(beds)
+    const avgBaths = avg(baths)
+    const avgYear = avg(years)
+    return {
+      beds: `${Math.max(1, avgBeds - 1)}-${avgBeds + 1}`,
+      baths: `${Math.max(1, avgBaths - 1)}-${avgBaths + 1}`,
+      sqft: `${Math.round(avgSqft * 0.8).toLocaleString()}-${Math.round(avgSqft * 1.2).toLocaleString()}`,
+      year: `${avgYear - 15}-${avgYear + 15}`,
+      price: `$${Math.round(median * 0.7 / 1000)}K-$${Math.round(median * 1.3 / 1000)}K`,
+      avgSqft, avgBeds, avgBaths, avgYear, median
+    }
+  })() : null
+
+  const [currentPage, setCurrentPage] = React.useState(1)
+  const PROPS_PER_PAGE = 50
+  const totalPages = Math.ceil((properties?.length || 0) / PROPS_PER_PAGE)
+  const paginatedProperties = properties?.slice((currentPage - 1) * PROPS_PER_PAGE, currentPage * PROPS_PER_PAGE) || []
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
@@ -424,6 +465,18 @@ export default function MarketScoutPage() {
                     <p className="text-xs text-slate-600">{filters.seller_finance_targets?.reason}</p>
                   </div>
                 </div>
+              ) : buyBox ? (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold text-purple-700 mb-2">📋 Use these filters to pull your off-market comps list from PropWire/BatchLeads:</p>
+                  <div className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="flex justify-between p-2 bg-purple-50 rounded"><span className="text-slate-600">Beds</span><span className="font-bold">{buyBox.beds}</span></div>
+                    <div className="flex justify-between p-2 bg-purple-50 rounded"><span className="text-slate-600">Baths</span><span className="font-bold">{buyBox.baths}</span></div>
+                    <div className="flex justify-between p-2 bg-purple-50 rounded"><span className="text-slate-600">Sqft Range</span><span className="font-bold">{buyBox.sqft}</span></div>
+                    <div className="flex justify-between p-2 bg-purple-50 rounded"><span className="text-slate-600">Year Built</span><span className="font-bold">{buyBox.year}</span></div>
+                    <div className="flex justify-between p-2 bg-purple-50 rounded"><span className="text-slate-600">Price Range</span><span className="font-bold">{buyBox.price}</span></div>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2">Pull sold comps from past 6-9 months (max 3 years) matching these specs. Upload as off-market list to complete analysis.</p>
+                </div>
               ) : (
                 <p className="text-slate-500 text-sm">Upload properties to get filter recommendations</p>
               )}
@@ -442,7 +495,7 @@ export default function MarketScoutPage() {
             </CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {properties?.slice(0, 12).map((property: any) => (
+                {paginatedProperties.map((property: any) => (
                   <div key={property.id} className="p-4 border rounded-lg hover:bg-slate-50 space-y-2">
                     <h4 className="font-medium text-sm truncate">
                       {property.address || property.listing_address || 'No address'}
@@ -499,10 +552,20 @@ export default function MarketScoutPage() {
                   </div>
                 ))}
               </div>
-              {(properties?.length || 0) > 12 && (
-                <p className="text-center text-slate-500 text-sm mt-4">
-                  + {(properties?.length || 0) - 12} more properties
-                </p>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-6">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 rounded border text-sm disabled:opacity-40 hover:bg-slate-100"
+                  >← Prev</button>
+                  <span className="text-sm text-slate-600">Page {currentPage} of {totalPages} ({properties?.length} properties)</span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 rounded border text-sm disabled:opacity-40 hover:bg-slate-100"
+                  >Next →</button>
+                </div>
               )}
             </CardContent>
           </Card>

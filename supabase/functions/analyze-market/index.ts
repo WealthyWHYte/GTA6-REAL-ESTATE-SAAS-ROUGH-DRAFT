@@ -44,9 +44,55 @@ serve(async (req)=>{
     }
     console.log(`📊 Analyzing ${properties.length} properties`);
     // Build market analysis prompt
-    const propertyList = properties.map((p)=>`- ${p.address}, ${p.city}, ${p.state} | Listed: $${p.listing_price?.toLocaleString() || 'N/A'} | Beds: ${p.bedrooms || 'N/A'} | Baths: ${p.bathrooms || 'N/A'} | SqFt: ${p.sqft || 'N/A'}`).join('\n');
+    // REAL MATH - Calculate stats from ALL 880 properties
+    const prices = properties.map((p: any) => p.listing_price || 0).filter((v: number) => v > 0)
+    const sqfts = properties.map((p: any) => p.sqft || 0).filter((v: number) => v > 0)
+    const beds = properties.map((p: any) => p.bedrooms || 0).filter((v: number) => v > 0)
+    const baths = properties.map((p: any) => p.bathrooms || 0).filter((v: number) => v > 0)
+    const years = properties.map((p: any) => p.year_built || 0).filter((v: number) => v > 1900)
+    const doms = properties.map((p: any) => p.days_on_market || 0).filter((v: number) => v >= 0)
+    const equities = properties.map((p: any) => p.estimated_equity || 0).filter((v: number) => v > 0)
+
+    const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a: number, b: number) => a + b, 0) / arr.length) : 0
+    const median = (arr: number[]) => { const s = [...arr].sort((a, b) => a - b); return s[Math.floor(s.length / 2)] || 0 }
+
+    const realStats = {
+      total_properties: properties.length,
+      avg_price: avg(prices),
+      median_price: median(prices),
+      avg_sqft: avg(sqfts),
+      avg_beds: avg(beds),
+      avg_baths: avg(baths),
+      avg_year_built: avg(years),
+      avg_dom: avg(doms),
+      avg_equity: avg(equities),
+      high_equity_count: properties.filter((p: any) => (p.estimated_equity || 0) > (p.listing_price || 1) * 0.3).length,
+      motivated_count: properties.filter((p: any) => (p.days_on_market || 0) > 90).length,
+      free_clear_count: properties.filter((p: any) => !p.mortgage_balance || p.mortgage_balance === 0).length,
+      avg_ppsqft: Math.round(avg(prices) / (avg(sqfts) || 1)),
+    }
+
+    const buyBox = {
+      beds: `${Math.max(1, avg(beds) - 1)}-${avg(beds) + 1}`,
+      baths: `${Math.max(1, avg(baths) - 1)}-${avg(baths) + 1}`,
+      sqft_range: `${Math.round(avg(sqfts) * 0.7)}-${Math.round(avg(sqfts) * 1.3)}`,
+      year_range: `${avg(years) - 20}-${avg(years) + 10}`,
+      price_range: `$${Math.round(median(prices) * 0.7).toLocaleString()}-$${Math.round(median(prices) * 1.3).toLocaleString()}`,
+    }
+
+    // Sample 30 properties for AI prompt (stays under token limit)
+    const sampleProperties = properties.slice(0, 30)
+    const propertyList = sampleProperties.map((p: any) => `- ${p.address}, ${p.city}, ${p.state} | $${p.listing_price?.toLocaleString() || 'N/A'} | ${p.bedrooms || 'N/A'}bd/${p.bathrooms || 'N/A'}ba | ${p.sqft || 'N/A'}sqft | DOM:${p.days_on_market || 0}`).join('\n');
     const systemPrompt = `You are a real estate market research expert analyzing investment opportunities. Provide detailed, data-driven insights about market conditions, pricing trends, and investment potential.`;
-    const prompt = `Analyze this real estate market for investment opportunities:
+    const prompt = `You are a real estate market expert. Here is REAL calculated data from ${properties.length} properties:
+
+MARKET STATS (CALCULATED FROM ALL PROPERTIES):
+${JSON.stringify(realStats, null, 2)}
+
+BUY BOX (AUTO-GENERATED):
+${JSON.stringify(buyBox, null, 2)}
+
+SAMPLE PROPERTIES (${sampleProperties.length} of ${properties.length}):
 
 MARKET: ${city}, ${state}
 PROPERTY SAMPLE (${properties.length} total):
