@@ -22,3 +22,7 @@ credentials.json
 supabase/functions/_shared/ai-router.ts
 client_secret_*.json
 analyze.js
+check_data.js
+check_data.mjs
+check_cols.mjs
+analyze.js
