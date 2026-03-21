@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import PropertyDetailModal from '@/components/modals/PropertyDetailModal'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -434,6 +435,8 @@ export default function MarketScoutPage() {
 
   const [currentPage, setCurrentPage] = React.useState(1)
   const [selectedCity, setSelectedCity] = React.useState<string | null>(null)
+  const [selectedProperty, setSelectedProperty] = React.useState<any>(null)
+  const [modalOpen, setModalOpen] = React.useState(false)
   const PROPS_PER_PAGE = 50
   const totalPages = Math.ceil((properties?.length || 0) / PROPS_PER_PAGE)
   const paginatedProperties = properties?.slice((currentPage - 1) * PROPS_PER_PAGE, currentPage * PROPS_PER_PAGE) || []
@@ -958,6 +961,17 @@ export default function MarketScoutPage() {
           </Card>
         )}
 
+        <PropertyDetailModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          property={selectedProperty}
+          marketContext={compsAnalysis ? {
+            comp_avg_ppsqft: compsAnalysis.comp_avg_ppsqft,
+            median_price: compsAnalysis.comp_median,
+            avg_dom: computedStats?.avg_dom
+          } : null}
+        />
+
         {/* Property List */}
         <div className="mt-8">
           <Card>
@@ -970,7 +984,7 @@ export default function MarketScoutPage() {
             <CardContent>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {paginatedProperties.map((property: any) => (
-                  <div key={property.id} className="p-4 border rounded-lg hover:bg-slate-50 space-y-2">
+                  <div key={property.id} className="p-4 border rounded-lg hover:bg-slate-50 space-y-2 cursor-pointer hover:border-purple-300 transition-all" onClick={() => { setSelectedProperty(property); setModalOpen(true) }}>
                     <h4 className="font-medium text-sm truncate">
                       {property.address || property.listing_address || 'No address'}
                     </h4>

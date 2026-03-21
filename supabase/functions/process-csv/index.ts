@@ -38,12 +38,12 @@ function detectColumnType(header: string, sampleValues: string[]): string | null
     ? numericValues.reduce((sum, v) => sum + (parseNumber(v) || 0), 0) / numericValues.length 
     : 0
   
-  // Address
-  if (h.includes('address') || h.includes('street')) return 'address'
-  if (h.includes('city')) return 'city'
-  if (h.includes('state') || h.includes('province')) return 'state'
-  if (h.includes('zip') || h.includes('postal')) return 'zip'
-  if (h.includes('county')) return 'county'
+  // Address — MUST exclude owner/mailing/auction fields
+  if ((h === 'address' || h.includes('street')) && !h.includes('owner') && !h.includes('mailing') && !h.includes('auction')) return 'address'
+  if (h === 'city' && !h.includes('owner') && !h.includes('mailing') && !h.includes('auction')) return 'city'
+  if (h === 'state' && !h.includes('owner') && !h.includes('mailing')) return 'state'
+  if ((h === 'zip' || h === 'postal') && !h.includes('owner') && !h.includes('mailing')) return 'zip'
+  if (h === 'county') return 'county'
   
   // SQFT - Handle "Living Square Feet" ONLY - this is the primary sqft field
   if (h.includes('living') && (h.includes('square') || h.includes('sq'))) return 'sqft'
