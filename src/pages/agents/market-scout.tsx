@@ -140,7 +140,17 @@ export default function MarketScoutPage() {
       return price >= 400000 && price <= 3000000
     })
     const workingSet = buyBoxProps.length > 0 ? buyBoxProps : properties
-    const equities = workingSet.map((p: any) => p.estimated_equity || 0).filter((v: number) => v > 0 && v < 5000000)
+    // estimated_equity in DB is wrongly set to listing_price
+    // Real equity = estimated_value - open_mortgage_balance  
+    const equities = workingSet
+      .map((p: any) => {
+        const val = p.estimated_value || 0
+        const mortgage = p.open_mortgage_balance || 0
+        if (val > 0 && mortgage > 0) return val - mortgage
+        if (val > 0) return val  // free & clear
+        return 0
+      })
+      .filter((v: number) => v > 0 && v < 10000000)
     const doms = properties.map((p: any) => p.days_on_market || 0)
     const sqfts = properties.map((p: any) => p.sqft || 0).filter((v: number) => v > 0 && v < 20000)
     const years = properties.map((p: any) => p.year_built || 0).filter((v: number) => v > 1900)
@@ -164,8 +174,18 @@ export default function MarketScoutPage() {
       motivated_mild: properties.filter((p: any) => (p.days_on_market || 0) >= 30 && (p.days_on_market || 0) < 90).length,
       no_dom_data: properties.filter((p: any) => p.days_on_market === null || p.days_on_market === undefined).length,
       free_clear: properties.filter((p: any) => !p.open_mortgage_balance || p.open_mortgage_balance === 0).length,
-      subject_to: properties.filter((p: any) => (p.open_mortgage_balance || 0) > 0 && (p.estimated_equity || 0) > (p.listing_price || 1) * 0.1).length,
-      high_equity: properties.filter((p: any) => (p.estimated_equity || 0) > (p.listing_price || 1) * 0.3).length,
+      subject_to: properties.filter((p: any) => {
+        const mortgage = p.open_mortgage_balance || 0
+        const val = p.estimated_value || 0
+        return mortgage > 0 && val > mortgage  // has mortgage but property worth more
+      }).length,
+      high_equity: properties.filter((p: any) => {
+        const val = p.estimated_value || 0
+        const mortgage = p.open_mortgage_balance || 0
+        const price = p.listing_price || 1
+        const realEquity = val > 0 ? val - mortgage : 0
+        return realEquity > price * 0.3
+      }).length,
       in_buy_box: buyBoxProps.length,
       price_buckets: [
         { label: 'Under $500K', count: properties.filter((p: any) => (p.listing_price || 0) < 500000).length },
@@ -199,8 +219,6 @@ export default function MarketScoutPage() {
     free_clear: computedStats?.free_clear || 0,
     subject_to_viable: computedStats?.subject_to || 0
   }
-  const primaryStrategy = getField('primary_strategy', 'Wholesale')
-  const secondaryStrategy = getField('secondary_strategy', 'Lease Option')
   const context = {
     temp: getField('market_context', 'Moderate'),
     grade: getField('investment_grade', 'B')
@@ -409,41 +427,7 @@ export default function MarketScoutPage() {
           </Card>
         </div>
 
-        {/* Strategy Recommendations */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-purple-600" />
-              Recommended Strategies
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge className="bg-purple-600">PRIMARY</Badge>
-                  <span className="font-bold text-purple-700">
-                    {primaryStrategy}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-600">
-                  Best strategy for {segments.subject_to_viable || 0} properties in this market
-                </p>
-              </div>
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="outline">SECONDARY</Badge>
-                  <span className="font-bold text-blue-700">
-                    {secondaryStrategy}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-600">
-                  Backup strategy for {segments.subject_to_viable || 0} properties
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+
 
         {/* Market Context */}
         <Card className="mb-8">
