@@ -196,7 +196,7 @@ export default function UnderwriterPage() {
             </Button>
             <div>
               <h1 className="text-3xl font-gta text-vice-pink">UNDERWRITER</h1>
-              <p className="text-muted-foreground text-sm">Creative Finance Deal Vetting — Jerry Norton Framework</p>
+              <p className="text-muted-foreground text-sm">Creative Finance Deal Vetting — Creative Finance Framework</p>
             </div>
           </div>
           <Button onClick={handleAnalyze} disabled={isAnalyzing}
@@ -378,7 +378,7 @@ export default function UnderwriterPage() {
                   <div className="text-center py-12">
                     <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-xl font-gta text-muted-foreground mb-2">NO ANALYSIS YET</h3>
-                    <p className="text-muted-foreground mb-6">Click RUN ANALYSIS to score properties using the Jerry Norton Creative Finance Framework</p>
+                    <p className="text-muted-foreground mb-6">Click RUN ANALYSIS to score properties using the Creative Finance Framework</p>
                     <Button onClick={handleAnalyze} disabled={isAnalyzing} className="bg-vice-cyan text-background font-gta">
                       <Zap className="mr-2 w-5 h-5" /> SCORE PROPERTIES
                     </Button>
@@ -393,7 +393,7 @@ export default function UnderwriterPage() {
             <Card className="mission-card">
               <CardHeader><CardTitle className="font-gta text-vice-cyan text-sm">SCORING FRAMEWORK</CardTitle></CardHeader>
               <CardContent className="text-xs space-y-2 text-slate-400">
-                <div className="font-bold text-yellow-400 mb-2">Jerry Norton Deal Structure</div>
+                <div className="font-bold text-yellow-400 mb-2">Deal Scoring Breakdown</div>
                 {[
                   ['Motivation (DOM)', '0-30 pts', '90d+ = 20pts, 60d = 15pts'],
                   ['Equity Position', '0-25 pts', 'Free&Clear=25, >50%=22'],
