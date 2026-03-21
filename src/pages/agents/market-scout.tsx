@@ -446,7 +446,7 @@ export default function MarketScoutPage() {
                 <span className="font-medium">Grade:</span> {context?.grade || 'Analysis pending'}
               </p>
               <p className="text-sm">
-                <span className="font-medium">Best Fit:</span> {primaryStrategy || 'Wholesale'}
+                <span className="font-medium">Best Fit:</span> Wholesale
               </p>
               <p className="text-sm">
                 <span className="font-medium">Pricing:</span> ${stats?.avg_listing_price ? Math.round(stats.avg_listing_price / 1000000).toFixed(1) + 'M' : '$0'} median
