@@ -294,9 +294,7 @@ export default function MarketScoutPage() {
               <div className="text-3xl font-bold text-purple-700">
                 {(properties?.length || 0).toLocaleString()}
               </div>
-              <div className="text-xs text-purple-500 mt-1">
-                {computedStats?.in_buy_box || 0} in buy box ($400K-$3M)
-              </div>
+
             </CardContent>
           </Card>
 
@@ -309,9 +307,7 @@ export default function MarketScoutPage() {
               <div className="text-3xl font-bold text-green-700">
                 ${computedStats ? (computedStats.median_price >= 1000000 ? (computedStats.median_price/1000000).toFixed(1)+'M' : Math.round(computedStats.median_price/1000)+'K') : '0'}
               </div>
-              <div className="text-xs text-green-500 mt-1">
-                Avg: ${computedStats ? (computedStats.avg_price >= 1000000 ? (computedStats.avg_price/1000000).toFixed(1)+'M' : Math.round(computedStats.avg_price/1000)+'K') : '0'} (buy box range)
-              </div>
+
             </CardContent>
           </Card>
 
@@ -322,7 +318,11 @@ export default function MarketScoutPage() {
                 <span className="text-sm font-medium">Avg Equity</span>
               </div>
               <div className="text-3xl font-bold text-blue-700">
-                ${computedStats?.avg_equity ? Math.round(computedStats.avg_equity/1000)+'K' : '0'}
+                {computedStats?.avg_equity ? 
+                  (computedStats.avg_equity >= 1000000 
+                    ? '$' + (computedStats.avg_equity/1000000).toFixed(2) + 'M'
+                    : '$' + Math.round(computedStats.avg_equity/1000) + 'K')
+                  : '$0'}
               </div>
             </CardContent>
           </Card>
@@ -334,7 +334,7 @@ export default function MarketScoutPage() {
                 <span className="text-sm font-medium">Avg DOM</span>
               </div>
               <div className="text-3xl font-bold text-orange-700">
-                {Math.round(stats.avg_days_on_market) || 0} days
+                {computedStats?.avg_dom ? Math.round(computedStats.avg_dom) + ' days' : 'N/A'}
               </div>
             </CardContent>
           </Card>
