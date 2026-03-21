@@ -105,27 +105,36 @@ export default function UnderwriterPage() {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return []
-      // Get analysis + join with original property data for verification
       const { data: analysisData } = await supabase
         .from('property_analysis')
-        .select('*, property:property_id(address, city, state, bedrooms, bathrooms, living_square_feet, listing_price, days_on_market, open_mortgage_balance, last_sale_amount, estimated_value)')
+        .select('*')
         .eq('account_id', user?.id)
         .order('win_win_score', { ascending: false })
-      // Merge analysis with original property data
-      return (analysisData || []).map((a: any) => ({
-        ...a,
-        address: a.property?.address || a.address,
-        city: a.property?.city || a.city,
-        state: a.property?.state || a.state,
-        bedrooms: a.property?.bedrooms,
-        bathrooms: a.property?.bathrooms,
-        sqft: a.property?.living_square_feet,
-        listing_price: a.property?.listing_price,
-        days_on_market: a.property?.days_on_market,
-        equity_percent: a.property?.open_mortgage_balance && a.property?.listing_price
-          ? Math.round(((a.property.listing_price - a.property.open_mortgage_balance) / a.property.listing_price) * 1000) / 10
-          : undefined,
-      })) as Deal[]
+      if (!analysisData?.length) return []
+      const propIds = analysisData.map((a: any) => a.property_id).filter(Boolean)
+      const { data: propsData } = await supabase
+        .from('properties')
+        .select('id, address, city, state, bedrooms, bathrooms, living_square_feet, listing_price, days_on_market, open_mortgage_balance, last_sale_amount, estimated_value')
+        .in('id', propIds)
+      const propsMap: Record<string, any> = {}
+      ;(propsData || []).forEach((p: any) => { propsMap[p.id] = p })
+      return analysisData.map((a: any) => {
+        const prop = propsMap[a.property_id] || {}
+        return {
+          ...a,
+          address: prop.address || a.address,
+          city: prop.city || a.city,
+          state: prop.state || a.state,
+          bedrooms: prop.bedrooms,
+          bathrooms: prop.bathrooms,
+          sqft: prop.living_square_feet,
+          listing_price: prop.listing_price,
+          days_on_market: prop.days_on_market,
+          equity_percent: prop.open_mortgage_balance && prop.listing_price
+            ? Math.round(((prop.listing_price - prop.open_mortgage_balance) / prop.listing_price) * 1000) / 10
+            : undefined,
+        }
+      }) as Deal[]
     }
   })
 
