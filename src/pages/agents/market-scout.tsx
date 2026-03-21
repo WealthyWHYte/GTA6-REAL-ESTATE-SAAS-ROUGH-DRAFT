@@ -132,14 +132,23 @@ export default function MarketScoutPage() {
   // REAL MATH — computed directly from properties data, zero AI guessing
   const computedStats = React.useMemo(() => {
     if (!properties || properties.length === 0) return null
-    const prices = properties.map((p: any) => p.listing_price || 0).filter((v: number) => v > 0)
-    const equities = properties.map((p: any) => p.estimated_equity || 0).filter((v: number) => v > 0 && v < 50000000) // filter outliers
+    const allPrices = properties.map((p: any) => p.listing_price || 0).filter((v: number) => v > 0)
+    const prices = allPrices.filter((v: number) => v <= 3000000) // focus on buy box for stats
+    // Filter to buy box range for meaningful stats (exclude luxury outliers)
+    const buyBoxProps = properties.filter((p: any) => {
+      const price = p.listing_price || 0
+      return price >= 400000 && price <= 3000000
+    })
+    const workingSet = buyBoxProps.length > 0 ? buyBoxProps : properties
+    const equities = workingSet.map((p: any) => p.estimated_equity || 0).filter((v: number) => v > 0 && v < 5000000)
     const doms = properties.map((p: any) => p.days_on_market || 0)
-    const sqfts = properties.map((p: any) => p.sqft || 0).filter((v: number) => v > 0)
+    const sqfts = properties.map((p: any) => p.sqft || 0).filter((v: number) => v > 0 && v < 20000)
     const years = properties.map((p: any) => p.year_built || 0).filter((v: number) => v > 1900)
     const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0
     const sorted = [...prices].sort((a, b) => a - b)
     const median = sorted[Math.floor(sorted.length / 2)] || 0
+    const allSorted = [...allPrices].sort((a, b) => a - b)
+    const allMedian = allSorted[Math.floor(allSorted.length / 2)] || 0
     return {
       total: properties.length,
       avg_price: avg(prices),
@@ -154,11 +163,10 @@ export default function MarketScoutPage() {
       motivated: properties.filter((p: any) => (p.days_on_market || 0) >= 90).length,
       motivated_mild: properties.filter((p: any) => (p.days_on_market || 0) >= 30 && (p.days_on_market || 0) < 90).length,
       no_dom_data: properties.filter((p: any) => p.days_on_market === null || p.days_on_market === undefined).length,
-      // mortgage_balance is null for all — unknown, not free & clear
-      mortgage_unknown: 880,
       free_clear: properties.filter((p: any) => !p.open_mortgage_balance || p.open_mortgage_balance === 0).length,
-      subject_to: properties.filter((p: any) => (p.open_mortgage_balance || 0) > 0 && (p.estimated_equity || 0) > 0).length,
+      subject_to: properties.filter((p: any) => (p.open_mortgage_balance || 0) > 0 && (p.estimated_equity || 0) > (p.listing_price || 1) * 0.1).length,
       high_equity: properties.filter((p: any) => (p.estimated_equity || 0) > (p.listing_price || 1) * 0.3).length,
+      in_buy_box: buyBoxProps.length,
       price_buckets: [
         { label: 'Under $500K', count: properties.filter((p: any) => (p.listing_price || 0) < 500000).length },
         { label: '$500K-$1M', count: properties.filter((p: any) => (p.listing_price || 0) >= 500000 && (p.listing_price || 0) < 1000000).length },
@@ -213,7 +221,8 @@ export default function MarketScoutPage() {
 
   // Compute real buy box from properties
   const buyBox = properties && properties.length > 0 ? (() => {
-    const prices = properties.map((p: any) => p.listing_price || 0).filter((v: number) => v > 0)
+    const allPrices = properties.map((p: any) => p.listing_price || 0).filter((v: number) => v > 0)
+    const prices = allPrices.filter((v: number) => v <= 3000000) // focus on buy box for stats
     const sqfts = properties.map((p: any) => p.sqft || 0).filter((v: number) => v > 0)
     const beds = properties.map((p: any) => p.bedrooms || 0).filter((v: number) => v > 0)
     const baths = properties.map((p: any) => p.bathrooms || 0).filter((v: number) => v > 0)
@@ -283,7 +292,10 @@ export default function MarketScoutPage() {
                 <span className="text-sm font-medium">Total Properties</span>
               </div>
               <div className="text-3xl font-bold text-purple-700">
-                {stats.total_properties?.toLocaleString() || properties?.length || 0}
+                {(properties?.length || 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-purple-500 mt-1">
+                {computedStats?.in_buy_box || 0} in buy box ($400K-$3M)
               </div>
             </CardContent>
           </Card>
@@ -292,10 +304,13 @@ export default function MarketScoutPage() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 text-green-600 mb-2">
                 <DollarSign className="w-5 h-5" />
-                <span className="text-sm font-medium">Avg Price</span>
+                <span className="text-sm font-medium">Median Price</span>
               </div>
               <div className="text-3xl font-bold text-green-700">
-                ${stats.avg_listing_price ? Math.round(stats.avg_listing_price / 1000000).toFixed(1) + 'M' : '$0'}
+                ${computedStats ? (computedStats.median_price >= 1000000 ? (computedStats.median_price/1000000).toFixed(1)+'M' : Math.round(computedStats.median_price/1000)+'K') : '0'}
+              </div>
+              <div className="text-xs text-green-500 mt-1">
+                Avg: ${computedStats ? (computedStats.avg_price >= 1000000 ? (computedStats.avg_price/1000000).toFixed(1)+'M' : Math.round(computedStats.avg_price/1000)+'K') : '0'} (buy box range)
               </div>
             </CardContent>
           </Card>
@@ -307,7 +322,7 @@ export default function MarketScoutPage() {
                 <span className="text-sm font-medium">Avg Equity</span>
               </div>
               <div className="text-3xl font-bold text-blue-700">
-                ${stats.avg_equity ? Math.round(stats.avg_equity / 1000) + 'K' : '$0'}
+                ${computedStats?.avg_equity ? Math.round(computedStats.avg_equity/1000)+'K' : '0'}
               </div>
             </CardContent>
           </Card>
