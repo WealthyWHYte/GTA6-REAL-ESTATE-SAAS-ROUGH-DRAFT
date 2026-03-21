@@ -187,8 +187,8 @@ export default function UnderwriterPage() {
     strong: analysis?.filter(d => d.win_win_score >= 65).length || 0,
     viable: analysis?.filter(d => d.win_win_score >= 50).length || 0,
     avgScore: analysis?.length ? Math.round(analysis.reduce((s, d) => s + d.win_win_score, 0) / analysis.length) : 0,
-    subTo: analysis?.filter(d => d.strategy?.includes('Subject-To')).length || 0,
-    sellerFin: analysis?.filter(d => d.strategy?.includes('Seller Finance')).length || 0,
+    subTo: analysis?.filter(d => d.strategy?.toLowerCase().includes('subject')).length || 0,
+    sellerFin: analysis?.filter(d => d.strategy === 'Seller Finance').length || 0,
     pipeline: analysis?.filter(d => d.win_win_score >= 50).reduce((s, d) => s + (Number(d.offer_price) || 0), 0) || 0,
   }
 
@@ -338,21 +338,23 @@ export default function UnderwriterPage() {
                           onClick={() => setSelectedDeal(deal)}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <span className="font-bold text-white text-sm truncate">{deal.address}</span>
-                                <Badge className={`text-xs ${strategyBadgeColor(deal.strategy)}`}>
-                                  {deal.strategy?.split(' + ')[0] || deal.strategy}
-                                </Badge>
-                                {deal.win_win_score >= 80 && <Badge className="bg-yellow-500 text-black text-xs">ELITE</Badge>}
-                                {deal.win_win_score >= 65 && deal.win_win_score < 80 && <Badge className="bg-green-600 text-xs">STRONG</Badge>}
+                              <div className="mb-1">
+                                <span className="font-bold text-white text-sm block truncate">{deal.address || 'Address loading...'}</span>
+                                <div className="flex items-center gap-2 flex-wrap mt-1">
+                                  <Badge className={`text-xs ${strategyBadgeColor(deal.strategy)}`}>
+                                    {deal.strategy?.split(' + ')[0] || deal.strategy}
+                                  </Badge>
+                                  {deal.win_win_score >= 80 && <Badge className="bg-yellow-500 text-black text-xs">ELITE</Badge>}
+                                  {deal.win_win_score >= 65 && deal.win_win_score < 80 && <Badge className="bg-green-600 text-xs">STRONG</Badge>}
+                                </div>
                               </div>
                               <div className="text-xs text-slate-400 flex gap-3 flex-wrap">
                                 <span><Building className="w-3 h-3 inline mr-1" />{deal.city}, {deal.state}</span>
                                 <span><DollarSign className="w-3 h-3 inline" />{fmt(Number(deal.offer_price))}</span>
                                 {deal.bedrooms && <span>{deal.bedrooms}bd</span>}
                                 {deal.bathrooms && <span>{deal.bathrooms}ba</span>}
-                                {deal.sqft && <span>{Math.round(deal.sqft)}sqft</span>}
-                                {deal.days_on_market && <span className="text-orange-400">{deal.days_on_market} DOM</span>}
+                                {deal.sqft && <span>{Math.round(deal.sqft).toLocaleString()}sqft</span>}
+                                {deal.days_on_market && deal.days_on_market > 0 && <span className="text-orange-400">{deal.days_on_market}d DOM</span>}
                               </div>
                             </div>
                             <div className={`text-2xl font-gta ${scoreColor(deal.win_win_score)} text-right shrink-0`}>
