@@ -104,10 +104,12 @@ function getStrategy(equityClass: string, dom: number, listPrice: number): any {
 function scoreProperty(property: any): any {
   const listPrice = property.listing_price || 0
   const estValue = property.estimated_value || listPrice
-  const mortgage = property.open_mortgage_balance || property.mortgage_balance || 0
+  // Try mortgage balance, fall back to last_sale_amount * 0.8 (assume 80% LTV)
+  const mortgage = property.open_mortgage_balance || property.mortgage_balance || (property.last_sale_amount ? Math.round(property.last_sale_amount * 0.8) : 0)
   const dom = property.days_on_market || 0
-  const sqft = property.sqft || 0
-  const intRate = property.interest_rate || 4.5
+  const sqft = property.sqft || property.living_square_feet || 0
+  // Try interest rate, fall back to 5.5% avg for properties without data
+  const intRate = property.interest_rate || property.recorded_mortgage_interest_rate || (mortgage > 0 ? 5.5 : 0)
   const hasMortgage = mortgage > 0
 
   const equity = hasMortgage ? (listPrice - mortgage) : listPrice

@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import {
   DollarSign, TrendingUp, ArrowLeft, FileText, Target, Zap,
-  Building, Mail, Home, BarChart3, Clock, CheckCircle, AlertTriangle
+  Building, Mail, Home, BarChart3, Clock, CheckCircle, AlertTriangle,
+  ChevronLeft, ChevronRight, Filter, Search
 } from 'lucide-react'
 
 interface Deal {
@@ -16,6 +18,9 @@ interface Deal {
   address: string
   city?: string
   state?: string
+  bedrooms?: number
+  bathrooms?: number
+  sqft?: number
   win_win_score: number
   max_score: number
   strategy: string
@@ -23,6 +28,9 @@ interface Deal {
   reasoning: string
   offer_price: number
   offer_percent: number
+  listing_price?: number
+  days_on_market?: number
+  equity_percent?: number
   level1_offer_price?: number
   level1_entry_fee?: number
   level1_monthly_payment?: number
@@ -41,7 +49,7 @@ interface Deal {
 }
 
 const fmt = (n: number | null | undefined) => {
-  if (!n || n === 0) return '-'
+  if (!n && n !== 0) return '-'
   if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M'
   if (n >= 1000) return '$' + Math.round(n / 1000) + 'K'
   return '$' + Math.round(n).toLocaleString()
@@ -71,25 +79,53 @@ const strategyBadgeColor = (strategy: string) => {
   return 'bg-slate-600'
 }
 
+const ITEMS_PER_PAGE = 20
+
 export default function UnderwriterPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
+
+  // Filters
   const [filterStrategy, setFilterStrategy] = useState<string>('all')
   const [filterScore, setFilterScore] = useState<number>(0)
+  const [filterCity, setFilterCity] = useState<string>('')
+  const [filterMinPrice, setFilterMinPrice] = useState<string>('')
+  const [filterMaxPrice, setFilterMaxPrice] = useState<string>('')
+  const [filterBeds, setFilterBeds] = useState<string>('')
+  const [filterBaths, setFilterBaths] = useState<string>('')
+  const [searchTerm, setSearchTerm] = useState<string>('')
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
 
   const { data: analysis, isLoading } = useQuery({
     queryKey: ['property-analysis'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return []
-      const { data } = await supabase
+      // Get analysis + join with original property data for verification
+      const { data: analysisData } = await supabase
         .from('property_analysis')
-        .select('*')
+        .select('*, property:property_id(address, city, state, bedrooms, bathrooms, living_square_feet, listing_price, days_on_market, open_mortgage_balance, last_sale_amount, estimated_value)')
         .eq('account_id', user?.id)
         .order('win_win_score', { ascending: false })
-      return data as Deal[] || []
+      // Merge analysis with original property data
+      return (analysisData || []).map((a: any) => ({
+        ...a,
+        address: a.property?.address || a.address,
+        city: a.property?.city || a.city,
+        state: a.property?.state || a.state,
+        bedrooms: a.property?.bedrooms,
+        bathrooms: a.property?.bathrooms,
+        sqft: a.property?.living_square_feet,
+        listing_price: a.property?.listing_price,
+        days_on_market: a.property?.days_on_market,
+        equity_percent: a.property?.open_mortgage_balance && a.property?.listing_price
+          ? Math.round(((a.property.listing_price - a.property.open_mortgage_balance) / a.property.listing_price) * 1000) / 10
+          : undefined,
+      })) as Deal[]
     }
   })
 
@@ -116,11 +152,25 @@ export default function UnderwriterPage() {
     }
   }
 
+  // Apply all filters
   const filtered = (analysis || []).filter(d => {
     if (filterStrategy !== 'all' && !d.strategy?.includes(filterStrategy)) return false
     if (d.win_win_score < filterScore) return false
+    if (filterCity && !d.city?.toLowerCase().includes(filterCity.toLowerCase())) return false
+    if (filterMinPrice && d.offer_price && d.offer_price < Number(filterMinPrice)) return false
+    if (filterMaxPrice && d.offer_price && d.offer_price > Number(filterMaxPrice)) return false
+    if (filterBeds && d.bedrooms && d.bedrooms < Number(filterBeds)) return false
+    if (filterBaths && d.bathrooms && d.bathrooms < Number(filterBaths)) return false
+    if (searchTerm && !d.address?.toLowerCase().includes(searchTerm.toLowerCase())) return false
     return true
   })
+
+  // Get unique cities for filter dropdown
+  const cities = [...new Set((analysis || []).map(d => d.city).filter(Boolean))]
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
+  const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
 
   const stats = {
     total: analysis?.length || 0,
@@ -133,11 +183,9 @@ export default function UnderwriterPage() {
     pipeline: analysis?.filter(d => d.win_win_score >= 50).reduce((s, d) => s + (Number(d.offer_price) || 0), 0) || 0,
   }
 
-  const strategies = [...new Set((analysis || []).map(d => d.strategy).filter(Boolean))]
-
   return (
     <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1600px] mx-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -159,64 +207,112 @@ export default function UnderwriterPage() {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-4">
           {[
-            { label: 'DEALS ANALYZED', value: stats.total, icon: FileText, color: 'text-vice-cyan' },
+            { label: 'DEALS', value: stats.total, icon: FileText, color: 'text-vice-cyan' },
             { label: 'ELITE (80+)', value: stats.elite, icon: Target, color: 'text-yellow-400' },
             { label: 'STRONG (65+)', value: stats.strong, icon: TrendingUp, color: 'text-green-400' },
             { label: 'VIABLE (50+)', value: stats.viable, icon: CheckCircle, color: 'text-blue-400' },
+            { label: 'SUBJECT-TO', value: stats.subTo, icon: Home, color: 'text-blue-400' },
+            { label: 'SELLER FIN', value: stats.sellerFin, icon: DollarSign, color: 'text-purple-400' },
+            { label: 'AVG SCORE', value: `${stats.avgScore}/100`, icon: BarChart3, color: scoreColor(stats.avgScore) },
+            { label: 'PIPELINE', value: fmt(stats.pipeline), icon: TrendingUp, color: 'text-green-400' },
           ].map(({ label, value, icon: Icon, color }) => (
             <Card key={label} className="mission-card">
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-xs text-muted-foreground font-gta">{label}</div>
-                    <div className={`text-3xl font-gta ${color}`}>{value}</div>
+                    <div className="text-[10px] text-muted-foreground font-gta">{label}</div>
+                    <div className={`text-xl font-gta ${color}`}>{value}</div>
                   </div>
-                  <Icon className={`w-8 h-8 ${color} opacity-50`} />
+                  <Icon className={`w-6 h-6 ${color} opacity-50`} />
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* Strategy Overview */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          {[
-            { label: 'Subject-To', value: stats.subTo, color: 'text-blue-400', note: 'Assume existing mortgage' },
-            { label: 'Seller Finance', value: stats.sellerFin, color: 'text-purple-400', note: 'Free & clear deals' },
-            { label: 'Avg Score', value: stats.avgScore + '/100', color: scoreColor(stats.avgScore), note: 'Portfolio average' },
-            { label: 'Pipeline Value', value: fmt(stats.pipeline), color: 'text-green-400', note: 'Viable deals total' },
-          ].map(({ label, value, color, note }) => (
-            <Card key={label} className="mission-card">
-              <CardContent className="p-4">
-                <div className="text-xs text-muted-foreground">{label}</div>
-                <div className={`text-2xl font-gta ${color}`}>{value}</div>
-                <div className="text-xs text-slate-500 mt-1">{note}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {/* Filters Bar */}
+        <Card className="mission-card mb-4">
+          <CardContent className="p-3">
+            <div className="flex flex-wrap gap-2 items-center">
+              <div className="flex items-center gap-1 text-vice-cyan text-sm font-gta">
+                <Filter className="w-4 h-4" /> FILTERS:
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input placeholder="Search address..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-40 h-8 pl-7 text-xs" />
+              </div>
+
+              {/* City */}
+              <select value={filterCity} onChange={(e) => setFilterCity(e.target.value)}
+                className="h-8 px-2 text-xs bg-slate-900 border border-slate-700 rounded">
+                <option value="">All Cities</option>
+                {cities.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+
+              {/* Price Range */}
+              <Input type="number" placeholder="Min $" value={filterMinPrice} onChange={(e) => setFilterMinPrice(e.target.value)}
+                className="w-20 h-8 text-xs" />
+              <Input type="number" placeholder="Max $" value={filterMaxPrice} onChange={(e) => setFilterMaxPrice(e.target.value)}
+                className="w-20 h-8 text-xs" />
+
+              {/* Beds */}
+              <select value={filterBeds} onChange={(e) => setFilterBeds(e.target.value)}
+                className="h-8 px-2 text-xs bg-slate-900 border border-slate-700 rounded">
+                <option value="">Any Beds</option>
+                <option value="2">2+ Beds</option>
+                <option value="3">3+ Beds</option>
+                <option value="4">4+ Beds</option>
+              </select>
+
+              {/* Baths */}
+              <select value={filterBaths} onChange={(e) => setFilterBaths(e.target.value)}
+                className="h-8 px-2 text-xs bg-slate-900 border border-slate-700 rounded">
+                <option value="">Any Baths</option>
+                <option value="2">2+ Baths</option>
+                <option value="3">3+ Baths</option>
+              </select>
+
+              {/* Strategy */}
+              <Button size="sm" variant={filterStrategy === 'all' ? 'default' : 'outline'}
+                onClick={() => setFilterStrategy('all')} className="h-8 text-xs">All</Button>
+              <Button size="sm" variant={filterStrategy === 'Subject-To' ? 'default' : 'outline'}
+                onClick={() => setFilterStrategy('Subject-To')} className="h-8 text-xs">Subject-To</Button>
+              <Button size="sm" variant={filterStrategy === 'Seller Finance' ? 'default' : 'outline'}
+                onClick={() => setFilterStrategy('Seller Finance')} className="h-8 text-xs">Seller Finance</Button>
+
+              {/* Score */}
+              <Button size="sm" variant={filterScore === 65 ? 'default' : 'outline'}
+                onClick={() => setFilterScore(filterScore === 65 ? 0 : 65)} className="h-8 text-xs">65+</Button>
+              <Button size="sm" variant={filterScore === 80 ? 'default' : 'outline'}
+                onClick={() => setFilterScore(filterScore === 80 ? 0 : 80)} className="h-8 text-xs">80+</Button>
+
+              {/* Clear Filters */}
+              <Button size="sm" variant="outline" onClick={() => {
+                setFilterCity('')
+                setFilterMinPrice('')
+                setFilterMaxPrice('')
+                setFilterBeds('')
+                setFilterBaths('')
+                setFilterStrategy('all')
+                setFilterScore(0)
+                setSearchTerm('')
+              }} className="h-8 text-xs text-slate-400">Clear</Button>
+
+              <span className="text-xs text-slate-500 ml-2">
+                {filtered.length} deals{filtered.length !== paginated.length ? ` (showing ${paginated.length})` : ''}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Deal Queue */}
           <div className="lg:col-span-2">
-
-            {/* Filters */}
-            <div className="flex gap-2 mb-4 flex-wrap">
-              <Button size="sm" variant={filterStrategy === 'all' ? 'default' : 'outline'}
-                onClick={() => setFilterStrategy('all')} className="text-xs">All</Button>
-              <Button size="sm" variant={filterStrategy === 'Subject-To' ? 'default' : 'outline'}
-                onClick={() => setFilterStrategy('Subject-To')} className="text-xs">Subject-To</Button>
-              <Button size="sm" variant={filterStrategy === 'Seller Finance' ? 'default' : 'outline'}
-                onClick={() => setFilterStrategy('Seller Finance')} className="text-xs">Seller Finance</Button>
-              <Button size="sm" variant={filterScore === 65 ? 'default' : 'outline'}
-                onClick={() => setFilterScore(filterScore === 65 ? 0 : 65)} className="text-xs">Strong Only (65+)</Button>
-              <Button size="sm" variant={filterScore === 80 ? 'default' : 'outline'}
-                onClick={() => setFilterScore(filterScore === 80 ? 0 : 80)} className="text-xs">Elite Only (80+)</Button>
-              <span className="text-xs text-slate-500 self-center ml-2">{filtered.length} deals</span>
-            </div>
-
             <Card className="mission-card">
               <CardHeader>
                 <CardTitle className="font-gta text-vice-pink">DEAL QUEUE — DEFAULT EXIT: WHOLESALE</CardTitle>
@@ -224,36 +320,60 @@ export default function UnderwriterPage() {
               <CardContent>
                 {isLoading ? (
                   <div className="text-center py-12"><Zap className="w-12 h-12 text-vice-cyan animate-spin mx-auto mb-4" /></div>
-                ) : filtered.length > 0 ? (
-                  <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                    {filtered.slice(0, 50).map((deal) => (
-                      <div key={deal.property_id}
-                        className={`p-4 rounded-lg border cursor-pointer transition-all hover:border-vice-cyan ${scoreBg(deal.win_win_score)}`}
-                        onClick={() => setSelectedDeal(deal)}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <span className="font-bold text-white text-sm truncate">{deal.address}</span>
-                              <Badge className={`text-xs ${strategyBadgeColor(deal.strategy)}`}>
-                                {deal.strategy?.split(' + ')[0] || deal.strategy}
-                              </Badge>
-                              {deal.win_win_score >= 80 && <Badge className="bg-yellow-500 text-black text-xs">⭐ ELITE</Badge>}
-                              {deal.win_win_score >= 65 && deal.win_win_score < 80 && <Badge className="bg-green-600 text-xs">STRONG</Badge>}
+                ) : paginated.length > 0 ? (
+                  <>
+                    <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                      {paginated.map((deal) => (
+                        <div key={deal.property_id}
+                          className={`p-4 rounded-lg border cursor-pointer transition-all hover:border-vice-cyan ${scoreBg(deal.win_win_score)}`}
+                          onClick={() => setSelectedDeal(deal)}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <span className="font-bold text-white text-sm truncate">{deal.address}</span>
+                                <Badge className={`text-xs ${strategyBadgeColor(deal.strategy)}`}>
+                                  {deal.strategy?.split(' + ')[0] || deal.strategy}
+                                </Badge>
+                                {deal.win_win_score >= 80 && <Badge className="bg-yellow-500 text-black text-xs">ELITE</Badge>}
+                                {deal.win_win_score >= 65 && deal.win_win_score < 80 && <Badge className="bg-green-600 text-xs">STRONG</Badge>}
+                              </div>
+                              <div className="text-xs text-slate-400 flex gap-3 flex-wrap">
+                                <span><Building className="w-3 h-3 inline mr-1" />{deal.city}, {deal.state}</span>
+                                <span><DollarSign className="w-3 h-3 inline" />{fmt(Number(deal.offer_price))}</span>
+                                {deal.bedrooms && <span>{deal.bedrooms}bd</span>}
+                                {deal.bathrooms && <span>{deal.bathrooms}ba</span>}
+                                {deal.sqft && <span>{Math.round(deal.sqft)}sqft</span>}
+                                {deal.days_on_market && <span className="text-orange-400">{deal.days_on_market} DOM</span>}
+                              </div>
                             </div>
-                            <div className="text-xs text-slate-400 flex gap-3 flex-wrap">
-                              <span><Building className="w-3 h-3 inline mr-1" />{deal.city}, {deal.state}</span>
-                              <span><DollarSign className="w-3 h-3 inline" />{fmt(Number(deal.offer_price))}</span>
-                              <span className="text-slate-500">{deal.recommended_reason?.substring(0, 60)}...</span>
+                            <div className={`text-2xl font-gta ${scoreColor(deal.win_win_score)} text-right shrink-0`}>
+                              {deal.win_win_score}
+                              <div className="text-xs text-slate-500">/100</div>
                             </div>
-                          </div>
-                          <div className={`text-2xl font-gta ${scoreColor(deal.win_win_score)} text-right shrink-0`}>
-                            {deal.win_win_score}
-                            <div className="text-xs text-slate-500">/100</div>
                           </div>
                         </div>
+                      ))}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-800">
+                        <div className="text-xs text-slate-500">
+                          Page {currentPage} of {totalPages} ({filtered.length} total)
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1} className="h-8">
+                            <ChevronLeft className="w-4 h-4" /> Prev
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages} className="h-8">
+                            Next <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 ) : (
                   <div className="text-center py-12">
                     <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
@@ -341,12 +461,16 @@ export default function UnderwriterPage() {
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="font-gta text-vice-pink">{selectedDeal.address}</DialogTitle>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap mt-2">
                 <Badge className={strategyBadgeColor(selectedDeal.strategy)}>{selectedDeal.strategy}</Badge>
                 <Badge className={scoreBg(selectedDeal.win_win_score).replace('bg-', 'border-')}>
                   Score: {selectedDeal.win_win_score}/100 — {selectedDeal.recommendation}
                 </Badge>
                 <Badge className="bg-green-700">EXIT: WHOLESALE</Badge>
+                {selectedDeal.bedrooms && <Badge variant="outline">{selectedDeal.bedrooms}bd</Badge>}
+                {selectedDeal.bathrooms && <Badge variant="outline">{selectedDeal.bathrooms}ba</Badge>}
+                {selectedDeal.sqft && <Badge variant="outline">{Math.round(selectedDeal.sqft)}sqft</Badge>}
+                {selectedDeal.days_on_market && <Badge variant="outline">{selectedDeal.days_on_market} DOM</Badge>}
               </div>
             </DialogHeader>
 
@@ -398,6 +522,15 @@ export default function UnderwriterPage() {
                   <div className="flex justify-between"><span className="text-slate-400">Cash to Seller</span><span>{fmt(selectedDeal.level3_cash_to_seller)}</span></div>
                 </div>
               )}
+
+              {/* Data Source Verification */}
+              <div className="p-3 bg-blue-950/40 border border-blue-700 rounded">
+                <div className="text-xs font-bold text-blue-400 mb-1">📊 DATA SOURCE</div>
+                <div className="text-xs text-blue-100">
+                  This analysis is based on your uploaded property data from Market Scout.
+                  Property ID: {selectedDeal.property_id}
+                </div>
+              </div>
 
               <div className="flex gap-2">
                 <Button className="flex-1 bg-green-600 hover:bg-green-700 font-gta"
