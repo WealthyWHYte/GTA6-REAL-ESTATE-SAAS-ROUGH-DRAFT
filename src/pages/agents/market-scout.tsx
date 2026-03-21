@@ -263,6 +263,7 @@ export default function MarketScoutPage() {
   })() : null
 
   const [currentPage, setCurrentPage] = React.useState(1)
+  const [selectedCity, setSelectedCity] = React.useState<string | null>(null)
   const PROPS_PER_PAGE = 50
   const totalPages = Math.ceil((properties?.length || 0) / PROPS_PER_PAGE)
   const paginatedProperties = properties?.slice((currentPage - 1) * PROPS_PER_PAGE, currentPage * PROPS_PER_PAGE) || []
@@ -429,7 +430,18 @@ export default function MarketScoutPage() {
 
 
 
-        {/* Market Context */}
+        {/* Market Intelligence - 100% data driven */}
+        {computedStats && (() => {
+          const domTemp = computedStats.avg_dom < 30 ? 'Hot 🔥' : computedStats.avg_dom < 60 ? 'Warm' : computedStats.avg_dom < 90 ? 'Cool' : 'Cold'
+          const equityPct = Math.round((computedStats.high_equity / computedStats.total) * 100)
+          const equityGrade = equityPct >= 70 ? 'A' : equityPct >= 50 ? 'B' : equityPct >= 30 ? 'C' : 'D'
+          const motivatedPct = Math.round((computedStats.motivated / computedStats.total) * 100)
+          const freeClearPct = Math.round((computedStats.free_clear / computedStats.total) * 100)
+          const subjectToPct = Math.round((computedStats.subject_to / computedStats.total) * 100)
+          const bestStrategy = freeClearPct > 30 ? 'Seller Finance' : subjectToPct > 50 ? 'Subject-To' : motivatedPct > 20 ? 'Wholesale' : 'Retail/Lease Option'
+          const priceDiff = computedStats.avg_price - computedStats.median_price
+          const fmt = (n: number) => n >= 1000000 ? '$' + (n/1000000).toFixed(2) + 'M' : '$' + Math.round(n/1000) + 'K'
+          return (
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -438,22 +450,50 @@ export default function MarketScoutPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <p className="text-sm">
-                <span className="font-medium">Insight:</span> {context?.temp || 'Market analysis pending'}
-              </p>
-              <p className="text-sm">
-                <span className="font-medium">Grade:</span> {context?.grade || 'Analysis pending'}
-              </p>
-              <p className="text-sm">
-                <span className="font-medium">Best Fit:</span> Wholesale
-              </p>
-              <p className="text-sm">
-                <span className="font-medium">Pricing:</span> ${stats?.avg_listing_price ? Math.round(stats.avg_listing_price / 1000000).toFixed(1) + 'M' : '$0'} median
-              </p>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                  <span className="text-sm font-medium text-slate-600">Market Temperature</span>
+                  <span className="font-bold">{domTemp}</span>
+                </div>
+                <div className="text-xs text-slate-500 -mt-2 px-1">Avg {Math.round(computedStats.avg_dom)} days on market — under 30 = Hot, 30-60 = Warm, 60-90 = Cool, 90+ = Cold</div>
+                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                  <span className="text-sm font-medium text-slate-600">Equity Grade</span>
+                  <span className={`font-bold text-lg ${equityGrade === 'A' ? 'text-green-600' : equityGrade === 'B' ? 'text-blue-600' : 'text-orange-600'}`}>{equityGrade}</span>
+                </div>
+                <div className="text-xs text-slate-500 -mt-2 px-1">{equityPct}% of properties have 30%+ equity — A=70%+, B=50-70%, C=30-50%, D=under 30%</div>
+                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                  <span className="text-sm font-medium text-slate-600">Best Strategy</span>
+                  <span className="font-bold text-purple-700">{bestStrategy}</span>
+                </div>
+                <div className="text-xs text-slate-500 -mt-2 px-1">
+                  {freeClearPct}% free & clear → seller finance | {subjectToPct}% subject-to viable | {motivatedPct}% motivated (90+ DOM)
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <div className="text-xs text-slate-500 mb-1">Median Price (middle value)</div>
+                  <div className="text-2xl font-bold text-green-700">{fmt(computedStats.median_price)}</div>
+                  <div className="text-xs text-slate-500 mt-1">Half the list is above, half below this price</div>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <div className="text-xs text-slate-500 mb-1">Average Price (sum ÷ count)</div>
+                  <div className="text-2xl font-bold text-blue-700">{fmt(computedStats.avg_price)}</div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    {priceDiff > 0 ? `$${Math.round(priceDiff/1000)}K above median — luxury properties pulling avg up` : `$${Math.round(Math.abs(priceDiff)/1000)}K below median`}
+                  </div>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-lg">
+                  <div className="text-xs text-slate-500 mb-1">Avg Price Per Sqft</div>
+                  <div className="text-2xl font-bold text-purple-700">${computedStats.avg_ppsqft}/sqft</div>
+                  <div className="text-xs text-slate-500 mt-1">Use this to spot under/overpriced properties</div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
+          )
+        })()}
 
         {/* Top Cities & Recommended Filters */}
         <div className="grid md:grid-cols-2 gap-6">
@@ -467,13 +507,59 @@ export default function MarketScoutPage() {
             </CardHeader>
             <CardContent>
               {topCities && topCities.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="text-xs text-slate-500 mb-3">
+                    Top 5 markets cover {topCities.reduce((s: number, c: any) => s + (c.count as number), 0)} of {properties?.length || 0} properties
+                    {' '}({Math.round(topCities.reduce((s: number, c: any) => s + (c.count as number), 0) / (properties?.length || 1) * 100)}% of list)
+                  </div>
                   {topCities.map((item: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between">
-                      <span className="font-medium">{item.city || item.name || 'Unknown'}</span>
-                      <Badge variant="secondary">{item.count || 1} properties</Badge>
+                    <div
+                      key={i}
+                      className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer border border-transparent hover:border-slate-200 transition-all"
+                      onClick={() => setSelectedCity(selectedCity === (item.city || item.name) ? null : (item.city || item.name))}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400 w-4">{i+1}</span>
+                        <span className="font-medium text-sm">{item.city || item.name || 'Unknown'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 bg-slate-100 rounded-full h-1.5">
+                          <div className="bg-purple-500 h-1.5 rounded-full" style={{width: `${Math.round((item.count as number)/(properties?.length||1)*100)}%`}}></div>
+                        </div>
+                        <Badge variant="secondary">{item.count || 1}</Badge>
+                      </div>
                     </div>
                   ))}
+                  {selectedCity && (() => {
+                    const cityProps = properties?.filter((p: any) => p.city === selectedCity) || []
+                    const cp = cityProps.map((p: any) => p.listing_price || 0).filter((v: number) => v > 0)
+                    const ce = cityProps.map((p: any) => {
+                      const val = p.estimated_value || 0
+                      const mort = p.open_mortgage_balance || 0
+                      return val > 0 ? val - mort : 0
+                    }).filter((v: number) => v > 0)
+                    const avgP = cp.length ? Math.round(cp.reduce((a:number,b:number)=>a+b,0)/cp.length) : 0
+                    const sortedP = [...cp].sort((a,b)=>a-b)
+                    const medP = sortedP[Math.floor(sortedP.length/2)] || 0
+                    const avgE = ce.length ? Math.round(ce.reduce((a:number,b:number)=>a+b,0)/ce.length) : 0
+                    const motivated = cityProps.filter((p: any) => (p.days_on_market||0) >= 90).length
+                    const fmt = (n: number) => n >= 1000000 ? '$'+(n/1000000).toFixed(2)+'M' : '$'+Math.round(n/1000)+'K'
+                    const sqfts = cityProps.map((p:any)=>p.sqft||0).filter((v:number)=>v>0)
+                    const avgSqft = sqfts.length ? Math.round(sqfts.reduce((a:number,b:number)=>a+b,0)/sqfts.length) : 0
+                    return (
+                      <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                        <div className="font-semibold text-purple-800 mb-2">{selectedCity} — {cityProps.length} properties</div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div><span className="text-slate-500">Median Price</span><div className="font-bold">{fmt(medP)}</div></div>
+                          <div><span className="text-slate-500">Avg Price</span><div className="font-bold">{fmt(avgP)}</div></div>
+                          <div><span className="text-slate-500">Avg Equity</span><div className="font-bold">{fmt(avgE)}</div></div>
+                          <div><span className="text-slate-500">Avg Sqft</span><div className="font-bold">{avgSqft.toLocaleString()}</div></div>
+                          <div><span className="text-slate-500">Motivated (90+ DOM)</span><div className="font-bold text-red-600">{motivated}</div></div>
+                          <div><span className="text-slate-500">$/Sqft</span><div className="font-bold">{avgSqft ? '$'+Math.round(avgP/avgSqft) : 'N/A'}</div></div>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               ) : (
                 <p className="text-slate-500 text-sm">No city data available</p>
