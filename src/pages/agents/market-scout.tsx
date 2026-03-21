@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { 
   TrendingUp, Home, DollarSign, MapPin, Search, 
-  BarChart3, Calculator, ArrowLeft, RefreshCw, 
+  BarChart3, Calculator, ArrowLeft, RefreshCw, Upload, 
   Target, PieChart, Filter, Building, Users
 } from 'lucide-react'
 
@@ -56,6 +56,51 @@ export default function MarketScoutPage() {
       return data || []
     }
   })
+
+  // Fetch comps list (Phase 2)
+  const { data: comps, refetch: refetchComps } = useQuery({
+    queryKey: ['comps-for-market-scout'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+      const { data, error } = await supabase
+        .from('comps')
+        .select('*')
+        .eq('account_id', user.id)
+      if (error) throw error
+      return data || []
+    }
+  })
+
+  const [isUploadingComps, setIsUploadingComps] = React.useState(false)
+  const compsFileRef = React.useRef<HTMLInputElement>(null)
+
+  const handleCompsUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsUploadingComps(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-comps`,
+        { method: 'POST', headers: { 'Authorization': `Bearer ${session?.access_token}` }, body: formData }
+      )
+      const result = await response.json()
+      if (result.success) {
+        alert(`✅ ${result.inserted} comps uploaded! Phase 2 analysis now available.`)
+        refetchComps()
+      } else {
+        alert(`❌ Upload failed: ${result.error}`)
+      }
+    } catch (err: any) {
+      alert(`❌ Error: ${err.message}`)
+    } finally {
+      setIsUploadingComps(false)
+      if (compsFileRef.current) compsFileRef.current.value = ''
+    }
+  }
 
   // Trigger market analysis manually
   const handleAnalyze = async () => {
@@ -262,6 +307,131 @@ export default function MarketScoutPage() {
     }
   })() : null
 
+  // Phase 2 — computed comps analysis
+  const compsAnalysis = React.useMemo(() => {
+    if (!comps || comps.length === 0 || !properties || properties.length === 0) return null
+
+    const fmt = (n: number) => n >= 1000000 ? '$'+(n/1000000).toFixed(2)+'M' : '$'+Math.round(n/1000)+'K'
+
+    // Comps stats
+    const cPrices = comps.map((c: any) => c.listing_price || c.last_sale_amount || 0).filter((v: number) => v > 0)
+    const cSqfts = comps.map((c: any) => c.sqft || 0).filter((v: number) => v > 0)
+    const cYears = comps.map((c: any) => c.year_built || 0).filter((v: number) => v > 1900)
+    const avg = (arr: number[]) => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0
+    const sortedC = [...cPrices].sort((a,b)=>a-b)
+    const compMedian = sortedC[Math.floor(sortedC.length/2)] || 0
+    const compAvgPrice = avg(cPrices)
+    const compAvgSqft = avg(cSqfts)
+    const compAvgYear = avg(cYears)
+    const compAvgPPSqft = compAvgSqft ? Math.round(compAvgPrice/compAvgSqft) : 0
+
+    // On-market stats for comparison
+    const oPrices = properties.map((p: any) => p.listing_price || 0).filter((v: number) => v > 0)
+    const oSqfts = properties.map((p: any) => p.sqft || 0).filter((v: number) => v > 0)
+    const sortedO = [...oPrices].sort((a,b)=>a-b)
+    const onMedian = sortedO[Math.floor(sortedO.length/2)] || 0
+    const onAvgPrice = avg(oPrices)
+    const onAvgSqft = avg(oSqfts)
+    const onAvgPPSqft = onAvgSqft ? Math.round(onAvgPrice/onAvgSqft) : 0
+
+    // Price gap analysis
+    const priceGap = onMedian - compMedian
+    const priceGapPct = compMedian ? Math.round((priceGap/compMedian)*100) : 0
+    const ppsqftGap = onAvgPPSqft - compAvgPPSqft
+    const ppsqftGapPct = compAvgPPSqft ? Math.round((ppsqftGap/compAvgPPSqft)*100) : 0
+
+    // Property-level ARV and deal scoring
+    const scoredProps = properties.map((p: any) => {
+      const price = p.listing_price || 0
+      const sqft = p.sqft || 0
+      const estVal = p.estimated_value || 0
+      const mortgage = p.open_mortgage_balance || 0
+      const dom = p.days_on_market || 0
+
+      // ARV estimate = comp avg $/sqft * property sqft
+      const arv = compAvgPPSqft && sqft ? compAvgPPSqft * sqft : estVal
+
+      // Value gap = ARV vs listing price
+      const valueGap = arv - price
+      const valueGapPct = price ? Math.round((valueGap/price)*100) : 0
+
+      // Real equity = ARV - mortgage
+      const realEquity = arv - mortgage
+      const equityPct = arv ? Math.round((realEquity/arv)*100) : 0
+
+      // Deal score 0-100
+      let score = 50
+      if (valueGapPct > 20) score += 20  // underpriced vs comps
+      if (valueGapPct > 40) score += 10  // significantly underpriced
+      if (dom >= 90) score += 15          // motivated seller
+      if (dom >= 180) score += 5          // very motivated
+      if (equityPct >= 40) score += 10   // high equity
+      if (mortgage === 0) score += 5     // free & clear
+      score = Math.min(100, Math.max(0, score))
+
+      return {
+        ...p,
+        arv,
+        value_gap: valueGap,
+        value_gap_pct: valueGapPct,
+        real_equity: realEquity,
+        equity_pct: equityPct,
+        deal_score: score,
+        pricing_status: valueGapPct > 10 ? 'Underpriced' : valueGapPct < -10 ? 'Overpriced' : 'At Market'
+      }
+    }).sort((a: any, b: any) => b.deal_score - a.deal_score)
+
+    const underpriced = scoredProps.filter((p: any) => p.pricing_status === 'Underpriced').length
+    const overpriced = scoredProps.filter((p: any) => p.pricing_status === 'Overpriced').length
+    const atMarket = scoredProps.filter((p: any) => p.pricing_status === 'At Market').length
+    const top10 = scoredProps.slice(0, 10)
+
+    // City-level comps comparison
+    const compCities = [...new Set(comps.map((c: any) => c.city).filter(Boolean))]
+    const cityComparison = compCities.slice(0, 5).map((city: string) => {
+      const cityComps = comps.filter((c: any) => c.city === city)
+      const cityProps = properties.filter((p: any) => p.city === city)
+      const compP = cityComps.map((c: any) => c.listing_price || c.last_sale_amount || 0).filter((v: number) => v > 0)
+      const onP = cityProps.map((p: any) => p.listing_price || 0).filter((v: number) => v > 0)
+      const compS = cityComps.map((c: any) => c.sqft || 0).filter((v: number) => v > 0)
+      const compPPSqft = compS.length && compP.length ? Math.round(avg(compP)/avg(compS)) : 0
+      const onPPSqft = cityProps.map((p: any) => p.sqft||0).filter((v:number)=>v>0)
+      const onPS = onPPSqft.length && onP.length ? Math.round(avg(onP)/avg(onPPSqft)) : 0
+      return {
+        city,
+        comp_count: cityComps.length,
+        on_market_count: cityProps.length,
+        comp_median: (([...compP].sort((a,b)=>a-b)))[Math.floor(compP.length/2)] || 0,
+        on_median: (([...onP].sort((a,b)=>a-b)))[Math.floor(onP.length/2)] || 0,
+        comp_ppsqft: compPPSqft,
+        on_ppsqft: onPS,
+        gap_pct: compPPSqft && onPS ? Math.round(((onPS-compPPSqft)/compPPSqft)*100) : 0
+      }
+    })
+
+    return {
+      comps_count: comps.length,
+      comp_median: compMedian,
+      comp_avg_price: compAvgPrice,
+      comp_avg_sqft: compAvgSqft,
+      comp_avg_year: compAvgYear,
+      comp_avg_ppsqft: compAvgPPSqft,
+      on_median: onMedian,
+      on_avg_price: onAvgPrice,
+      on_avg_ppsqft: onAvgPPSqft,
+      price_gap: priceGap,
+      price_gap_pct: priceGapPct,
+      ppsqft_gap: ppsqftGap,
+      ppsqft_gap_pct: ppsqftGapPct,
+      underpriced,
+      overpriced,
+      at_market: atMarket,
+      top_deals: top10,
+      city_comparison: cityComparison,
+      fmt
+    }
+  }, [properties, comps])
+
   const [currentPage, setCurrentPage] = React.useState(1)
   const [selectedCity, setSelectedCity] = React.useState<string | null>(null)
   const PROPS_PER_PAGE = 50
@@ -295,6 +465,28 @@ export default function MarketScoutPage() {
               )}
               Re-Analyze Market
             </Button>
+            <div className="flex items-center gap-2">
+              <input
+                ref={compsFileRef}
+                type="file"
+                accept=".csv"
+                onChange={handleCompsUpload}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                onClick={() => compsFileRef.current?.click()}
+                disabled={isUploadingComps}
+                className="border-green-500 text-green-700 hover:bg-green-50"
+              >
+                {isUploadingComps ? (
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4 mr-2" />
+                )}
+                {comps && comps.length > 0 ? `Update Comps (${comps.length})` : 'Upload Comps List'}
+              </Button>
+            </div>
             <Button variant="outline" onClick={() => navigate('/command-center')}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
@@ -618,6 +810,153 @@ export default function MarketScoutPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Phase 2 — Comps Analysis */}
+        {compsAnalysis ? (
+          <div className="mt-8 space-y-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-1 flex-1 bg-gradient-to-r from-purple-500 to-green-500 rounded"></div>
+              <h2 className="text-xl font-bold text-slate-800 whitespace-nowrap">Phase 2 — Comps Analysis ({compsAnalysis.comps_count} sold comps)</h2>
+              <div className="h-1 flex-1 bg-gradient-to-r from-green-500 to-purple-500 rounded"></div>
+            </div>
+
+            {/* Comps vs On-Market Overview */}
+            <div className="grid md:grid-cols-3 gap-4">
+              <Card className="border-t-4 border-t-green-500">
+                <CardContent className="pt-4">
+                  <div className="text-xs text-slate-500 mb-1">Comps Median Price</div>
+                  <div className="text-2xl font-bold text-green-700">{compsAnalysis.fmt(compsAnalysis.comp_median)}</div>
+                  <div className="text-xs text-slate-500 mt-1">from {compsAnalysis.comps_count} sold/off-market comps</div>
+                </CardContent>
+              </Card>
+              <Card className={`border-t-4 ${compsAnalysis.price_gap_pct > 10 ? 'border-t-red-500' : compsAnalysis.price_gap_pct < -10 ? 'border-t-green-500' : 'border-t-yellow-500'}`}>
+                <CardContent className="pt-4">
+                  <div className="text-xs text-slate-500 mb-1">Price Gap (On-Market vs Comps)</div>
+                  <div className={`text-2xl font-bold ${compsAnalysis.price_gap_pct > 10 ? 'text-red-600' : 'text-green-600'}`}>
+                    {compsAnalysis.price_gap_pct > 0 ? '+' : ''}{compsAnalysis.price_gap_pct}%
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    {compsAnalysis.price_gap_pct > 10 ? '⚠️ On-market listings priced above comps' : compsAnalysis.price_gap_pct < -10 ? '✅ On-market listings below comp value' : '→ On-market pricing at comp level'}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-t-4 border-t-purple-500">
+                <CardContent className="pt-4">
+                  <div className="text-xs text-slate-500 mb-1">Comp Avg $/Sqft</div>
+                  <div className="text-2xl font-bold text-purple-700">${compsAnalysis.comp_avg_ppsqft}/sqft</div>
+                  <div className="text-xs text-slate-500 mt-1">On-market avg: ${compsAnalysis.on_avg_ppsqft}/sqft ({compsAnalysis.ppsqft_gap_pct > 0 ? '+' : ''}{compsAnalysis.ppsqft_gap_pct}%)</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Pricing Distribution */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Pricing Assessment — All {properties?.length} Properties vs Comps</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="text-3xl font-bold text-green-700">{compsAnalysis.underpriced}</div>
+                    <div className="text-sm font-medium text-green-600 mt-1">Underpriced</div>
+                    <div className="text-xs text-slate-500 mt-1">Listed 10%+ below comp ARV — best deals</div>
+                    <div className="text-xs text-green-600 font-medium mt-1">{Math.round(compsAnalysis.underpriced/(properties?.length||1)*100)}% of list</div>
+                  </div>
+                  <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="text-3xl font-bold text-yellow-700">{compsAnalysis.at_market}</div>
+                    <div className="text-sm font-medium text-yellow-600 mt-1">At Market</div>
+                    <div className="text-xs text-slate-500 mt-1">Within 10% of comp ARV</div>
+                    <div className="text-xs text-yellow-600 font-medium mt-1">{Math.round(compsAnalysis.at_market/(properties?.length||1)*100)}% of list</div>
+                  </div>
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div className="text-3xl font-bold text-red-700">{compsAnalysis.overpriced}</div>
+                    <div className="text-sm font-medium text-red-600 mt-1">Overpriced</div>
+                    <div className="text-xs text-slate-500 mt-1">Listed 10%+ above comp ARV</div>
+                    <div className="text-xs text-red-600 font-medium mt-1">{Math.round(compsAnalysis.overpriced/(properties?.length||1)*100)}% of list</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* City-Level Comparison */}
+            {compsAnalysis.city_comparison.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">City-Level: On-Market vs Comps $/Sqft</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {compsAnalysis.city_comparison.map((c: any, i: number) => (
+                      <div key={i} className="p-3 bg-slate-50 rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-medium">{c.city}</span>
+                          <span className={`text-sm font-bold ${c.gap_pct > 10 ? 'text-red-600' : c.gap_pct < -10 ? 'text-green-600' : 'text-yellow-600'}`}>
+                            {c.gap_pct > 0 ? '+' : ''}{c.gap_pct}% vs comps
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 text-xs text-slate-600">
+                          <div><span className="text-slate-400">On-Market</span><div className="font-medium">{c.on_market_count} props</div></div>
+                          <div><span className="text-slate-400">Comps</span><div className="font-medium">{c.comp_count} props</div></div>
+                          <div><span className="text-slate-400">On-Mkt $/sqft</span><div className="font-medium">${c.on_ppsqft}</div></div>
+                          <div><span className="text-slate-400">Comp $/sqft</span><div className="font-medium">${c.comp_ppsqft}</div></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Top 10 Deals */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">🏆 Top 10 Deals — Ranked by Deal Score</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {compsAnalysis.top_deals.map((p: any, i: number) => (
+                    <div key={p.id} className={`p-3 rounded-lg border ${p.pricing_status === 'Underpriced' ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded font-bold">#{i+1} Score: {p.deal_score}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${p.pricing_status === 'Underpriced' ? 'bg-green-100 text-green-700' : p.pricing_status === 'Overpriced' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{p.pricing_status}</span>
+                          </div>
+                          <div className="font-medium text-sm mt-1">{p.address}</div>
+                          <div className="text-xs text-slate-500">{p.city}, {p.state} | {p.bedrooms}bd/{p.bathrooms}ba | {p.sqft?.toLocaleString()} sqft</div>
+                        </div>
+                        <div className="text-right text-xs space-y-1">
+                          <div><span className="text-slate-400">List: </span><span className="font-bold">{compsAnalysis.fmt(p.listing_price||0)}</span></div>
+                          <div><span className="text-slate-400">ARV: </span><span className="font-bold text-green-700">{compsAnalysis.fmt(p.arv||0)}</span></div>
+                          <div><span className="text-slate-400">Gap: </span><span className={`font-bold ${p.value_gap_pct > 0 ? 'text-green-600' : 'text-red-600'}`}>{p.value_gap_pct > 0 ? '+' : ''}{p.value_gap_pct}%</span></div>
+                          <div><span className="text-slate-400">Equity: </span><span className="font-bold">{compsAnalysis.fmt(p.real_equity||0)}</span></div>
+                          {p.days_on_market > 0 && <div><span className="text-slate-400">DOM: </span><span className={`font-bold ${p.days_on_market >= 90 ? 'text-red-600' : ''}`}>{p.days_on_market}d</span></div>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <Card className="mt-8 border-dashed border-2 border-slate-300">
+            <CardContent className="pt-6 text-center py-10">
+              <Upload className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+              <div className="font-medium text-slate-600 mb-1">Upload Comps List to Unlock Phase 2</div>
+              <div className="text-sm text-slate-500 mb-4">Pull sold properties from PropWire using the filters above, then upload here for full market comparison, ARV analysis, and deal scoring</div>
+              <Button
+                variant="outline"
+                onClick={() => compsFileRef.current?.click()}
+                disabled={isUploadingComps}
+                className="border-green-500 text-green-700 hover:bg-green-50"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Comps CSV
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Property List */}
         <div className="mt-8">
