@@ -112,17 +112,21 @@ export default function UnderwriterPage() {
         .order('win_win_score', { ascending: false })
       if (!analysisData?.length) return []
       const propIds = analysisData.map((a: any) => a.property_id).filter(Boolean)
-      const { data: propsData } = await supabase
-        .from('properties')
-        .select('id, address, city, state, bedrooms, bathrooms, living_square_feet, listing_price, days_on_market, open_mortgage_balance, last_sale_amount, estimated_value')
-        .in('id', propIds)
+      const allProps: any[] = []
+      for (let i = 0; i < propIds.length; i += 200) {
+        const { data: batch } = await supabase
+          .from('properties')
+          .select('id, address, city, state, bedrooms, bathrooms, living_square_feet, listing_price, days_on_market, open_mortgage_balance, last_sale_amount, estimated_value')
+          .in('id', propIds.slice(i, i + 200))
+        if (batch) allProps.push(...batch)
+      }
       const propsMap: Record<string, any> = {}
-      ;(propsData || []).forEach((p: any) => { propsMap[p.id] = p })
+      allProps.forEach((p: any) => { propsMap[p.id] = p })
       return analysisData.map((a: any) => {
         const prop = propsMap[a.property_id] || {}
         return {
           ...a,
-          address: prop.address || a.address,
+          address: prop.address || a.city || 'Unknown Address',
           city: prop.city || a.city,
           state: prop.state || a.state,
           bedrooms: prop.bedrooms,
