@@ -122,24 +122,7 @@ export default function UnderwriterPage() {
         if (batch) allProps.push(...batch)
       }
       const propsMap: Record<string, any> = {}
-      allProps.forEach((p: any) => { propsMap[p.id] = p })
-      return analysisData.map((a: any) => {
-        const prop = propsMap[a.property_id] || {}
-        return {
-          ...a,
-          address: prop.address || a.city || 'Unknown Address',
-          city: prop.city || a.city,
-          state: prop.state || a.state,
-          bedrooms: prop.bedrooms,
-          bathrooms: prop.bathrooms,
-          sqft: prop.living_square_feet,
-          listing_price: prop.listing_price,
-          days_on_market: prop.days_on_market,
-          equity_percent: prop.open_mortgage_balance && prop.listing_price
-            ? Math.round(((prop.listing_price - prop.open_mortgage_balance) / prop.listing_price) * 1000) / 10
-            : undefined,
-        }
-      }) as Deal[]
+      return analysisData as Deal[]
     }
   })
 

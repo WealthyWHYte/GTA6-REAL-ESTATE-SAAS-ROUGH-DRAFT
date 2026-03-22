@@ -296,6 +296,9 @@ serve(async (req) => {
       const { error: insertError } = await serviceClient.from('property_analysis').insert({
         property_id: analysis.property_id,
         account_id: user.id,
+        address: analysis.address,
+        city: analysis.city,
+        state: analysis.state,
         reasoning: analysis.reasoning,
         recommendation: analysis.classification,
         strategy: analysis.strategy,
