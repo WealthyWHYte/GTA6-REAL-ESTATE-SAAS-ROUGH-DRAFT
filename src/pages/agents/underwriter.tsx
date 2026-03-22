@@ -117,6 +117,7 @@ export default function UnderwriterPage() {
         const { data: batch } = await supabase
           .from('properties')
           .select('id, address, city, state, bedrooms, bathrooms, living_square_feet, listing_price, days_on_market, open_mortgage_balance, last_sale_amount, estimated_value')
+          .eq('account_id', user?.id)
           .in('id', propIds.slice(i, i + 200))
         if (batch) allProps.push(...batch)
       }
