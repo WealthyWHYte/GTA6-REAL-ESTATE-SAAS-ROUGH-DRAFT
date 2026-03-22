@@ -86,6 +86,7 @@ export default function UnderwriterPage() {
   const queryClient = useQueryClient()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
+  const [selectedLevel, setSelectedLevel] = useState<1|2|3>(3)
 
   // Filters
   const [filterStrategy, setFilterStrategy] = useState<string>('all')

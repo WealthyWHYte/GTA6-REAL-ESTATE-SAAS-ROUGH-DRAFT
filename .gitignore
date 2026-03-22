@@ -26,3 +26,5 @@ check_data.js
 check_data.mjs
 check_cols.mjs
 analyze.js
+gmail_tokens.json
+client_secret_*.json

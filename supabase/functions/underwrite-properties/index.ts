@@ -174,21 +174,36 @@ function scoreProperty(property: any): any {
   else if (totalScore >= 50) { classification = 'Viable Deal'; classColor = 'blue' }
   else if (totalScore >= 35) { classification = 'Marginal'; classColor = 'orange' }
 
-  // Entry Fee
-  const cashToSeller = offerPrice * 0.03
-  const agentCommission = offerPrice * 0.06
-  const payMyself = offerPrice * 0.03
-  const closingCosts = 3000
-  const reno = property.estimated_repairs || 10000
-  const maintenance = 2000
-  const marketing = 2000
-  const totalEntryFee = cashToSeller + agentCommission + payMyself + closingCosts + reno + maintenance + marketing
-  const entryFeePct = offerPrice > 0 ? (totalEntryFee / offerPrice) * 100 : 0
-
-  // Offer Bands
+  // Offer Bands - FIXED: each level has its own base price
   const level1Price = Math.round(listPrice * 0.70)
   const level2Price = Math.round(listPrice * 0.70)
   const level3Price = listPrice
+
+  // Entry Fee per level - FIXED: calculated on each level's offer price
+  const reno = property.estimated_repairs || 10000
+
+  // Level 1: 70% + Terms - seller carry, so cash out of pocket is minimal
+  const l1CashToSeller = Math.round(level1Price * 0.03)  // 3% cash down
+  const l1AgentCommission = Math.round(level1Price * 0.03)  // 3% agent (motivated seller)
+  const l1PayMyself = Math.round(level1Price * 0.03)  // 3% acquisition fee
+  const l1Closing = 3000
+  const l1Entry = l1CashToSeller + l1AgentCommission + l1PayMyself + l1Closing + reno + 2000 + 2000
+
+  // Level 2: 70% ALL CASH - entry IS the full cash purchase + costs
+  // No seller carry so entry = offer price + closing + reno
+  const l2Closing = Math.round(level2Price * 0.02)  // 2% closing
+  const l2Agent = Math.round(level2Price * 0.03)    // 3% agent
+  const l2Entry = level2Price + l2Closing + l2Agent + reno  // Full cash needed
+
+  // Level 3: 100% + Terms - seller gets full price, we put down minimal
+  const l3CashToSeller = Math.round(level3Price * 0.03)  // 3% cash down
+  const l3AgentCommission = Math.round(level3Price * 0.06)  // 6% MLS agent
+  const l3PayMyself = Math.round(level3Price * 0.03)  // 3% acquisition
+  const l3Closing = 3000
+  const l3Entry = l3CashToSeller + l3AgentCommission + l3PayMyself + l3Closing + reno + 2000 + 2000
+
+  const entryFeePct = level3Price > 0 ? (l3Entry / level3Price) * 100 : 0
+  const totalEntryFee = l3Entry  // for scoring purposes use L3
 
   return {
     property_id: property.id,
@@ -221,22 +236,23 @@ function scoreProperty(property: any): any {
     offer_percent_level1: 70,
     offer_percent_level2: 70,
 
-    // Level 1
+    // Level 1: 70% + Terms (Negotiation Anchor)
     level1_offer_price: level1Price,
-    level1_entry_fee: totalEntryFee,
-    level1_monthly_payment: Math.round(calcPayment(level1Price * 0.97, useRate, strategy.term)),
-    level1_cash_to_seller: Math.round(level1Price * 0.03),
+    level1_entry_fee: Math.round(l1Entry),
+    level1_monthly_payment: Math.round(calcPayment(level1Price * 0.97, useRate > 0 ? useRate : 5, strategy.term)),
+    level1_cash_to_seller: l1CashToSeller,
     level1_seller_carry_amount: Math.round(level1Price * 0.97),
-    level1_seller_carry_rate: useRate,
+    level1_seller_carry_rate: useRate > 0 ? useRate : 5,
     level1_seller_carry_term: strategy.term,
 
-    // Level 2
+    // Level 2: 70% ALL CASH (entry = full cash needed)
     level2_offer_price: level2Price,
-    level2_entry_fee: Math.round(totalEntryFee * 1.2),
+    level2_entry_fee: Math.round(l2Entry),
+    level2_cash_needed: Math.round(l2Entry),  // full amount needed in cash
 
-    // Level 3
+    // Level 3: 100% + Terms (Win-Win Creative)
     level3_offer_price: level3Price,
-    level3_entry_fee: Math.round(totalEntryFee),
+    level3_entry_fee: Math.round(l3Entry),
     level3_monthly_payment: Math.round(monthlyPayment),
     level3_assume_mortgage: hasMortgage ? mortgage : 0,
     level3_seller_carry_amount: Math.round(financeAmount),
