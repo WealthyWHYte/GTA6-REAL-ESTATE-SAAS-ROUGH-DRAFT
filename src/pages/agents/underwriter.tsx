@@ -481,61 +481,100 @@ export default function UnderwriterPage() {
                 <div className="text-sm text-yellow-100">{selectedDeal.recommended_reason}</div>
               </div>
 
-              {/* 3 Offer Levels */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="p-3 bg-red-950/40 border border-red-700 rounded">
-                  <div className="text-xs font-bold text-red-400 mb-1">LEVEL 1</div>
-                  <div className="text-xs text-slate-400">Negotiation Anchor</div>
-                  <div className="text-lg font-gta text-red-300">{fmt(selectedDeal.level1_offer_price)}</div>
-                  <div className="text-xs text-slate-500">70% of list + terms</div>
-                  <div className="text-xs mt-1">Entry: {fmt(selectedDeal.level1_entry_fee)}</div>
-                  <div className="text-xs">Monthly: {fmt(selectedDeal.level1_monthly_payment)}/mo</div>
-                </div>
-                <div className="p-3 bg-orange-950/40 border border-orange-700 rounded">
-                  <div className="text-xs font-bold text-orange-400 mb-1">LEVEL 2</div>
-                  <div className="text-xs text-slate-400">Cash Leverage</div>
-                  <div className="text-lg font-gta text-orange-300">{fmt(selectedDeal.level2_offer_price)}</div>
-                  <div className="text-xs text-slate-500">70% all cash</div>
-                  <div className="text-xs mt-1">Entry: {fmt(selectedDeal.level2_entry_fee)}</div>
-                  <div className="text-xs">Fast close 7 days</div>
-                </div>
-                <div className="p-3 bg-green-950/40 border border-green-700 rounded">
-                  <div className="text-xs font-bold text-green-400 mb-1">LEVEL 3 ⭐</div>
-                  <div className="text-xs text-slate-400">Win-Win Creative</div>
-                  <div className="text-lg font-gta text-green-300">{fmt(selectedDeal.level3_offer_price)}</div>
-                  <div className="text-xs text-slate-500">100% + terms</div>
-                  <div className="text-xs mt-1">Entry: {fmt(selectedDeal.level3_entry_fee)}</div>
-                  <div className="text-xs">Monthly: {fmt(selectedDeal.level3_monthly_payment)}/mo</div>
-                </div>
-              </div>
-
-              {/* Level 3 Detail */}
-              {selectedDeal.level3_seller_carry_amount && (
-                <div className="p-3 bg-slate-800 rounded space-y-2 text-sm">
-                  <div className="font-bold text-green-400">Level 3 Structure Detail</div>
-                  {selectedDeal.level3_assume_mortgage && selectedDeal.level3_assume_mortgage > 0 && (
-                    <div className="flex justify-between"><span className="text-slate-400">Assume Mortgage</span><span>{fmt(selectedDeal.level3_assume_mortgage)}</span></div>
-                  )}
-                  <div className="flex justify-between"><span className="text-slate-400">Seller Carry Amount</span><span>{fmt(selectedDeal.level3_seller_carry_amount)}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Rate</span><span>{selectedDeal.level3_seller_carry_rate}% (vs bank 7-9%)</span></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Term</span><span>{selectedDeal.level3_seller_carry_term}yr (vs bank 30yr)</span></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Cash to Seller</span><span>{fmt(selectedDeal.level3_cash_to_seller)}</span></div>
-                </div>
-              )}
-
-              {/* Data Source Verification */}
-              <div className="p-3 bg-blue-950/40 border border-blue-700 rounded">
-                <div className="text-xs font-bold text-blue-400 mb-1">📊 DATA SOURCE</div>
-                <div className="text-xs text-blue-100">
-                  This analysis is based on your uploaded property data from Market Scout.
-                  Property ID: {selectedDeal.property_id}
-                </div>
+              {/* Expandable Offer Levels - select which to send */}
+              <div className="space-y-2">
+                {([
+                  { level: 1 as const, label: 'LEVEL 1 — Negotiation Anchor', tag: '70% + Terms', colorClass: 'border-red-700 text-red-400',
+                    price: selectedDeal.level1_offer_price, entry: selectedDeal.level1_entry_fee, monthly: selectedDeal.level1_monthly_payment,
+                    desc: 'Low ball for positioning. Expect counter. Seller carries note at favorable terms.',
+                    rows: [
+                      ['Offer Price', fmt(selectedDeal.level1_offer_price) + ' (70% of list)'],
+                      ['Cash to Seller (3%)', fmt(Math.round((selectedDeal.level1_offer_price||0)*0.03))],
+                      ['Agent Commission (3%)', fmt(Math.round((selectedDeal.level1_offer_price||0)*0.03))],
+                      ['Acquisition Fee (3%)', fmt(Math.round((selectedDeal.level1_offer_price||0)*0.03))],
+                      ['Closing + Reno + Other', '$15K'],
+                      ['TOTAL ENTRY FEE', fmt(selectedDeal.level1_entry_fee)],
+                      ['Seller Carry', fmt(selectedDeal.level1_seller_carry_amount)],
+                      ['Rate', (selectedDeal.level1_seller_carry_rate||5) + '% vs bank 7-9%'],
+                      ['Term', (selectedDeal.level1_seller_carry_term||40) + 'yr vs bank 30yr'],
+                      ['Monthly Payment', fmt(selectedDeal.level1_monthly_payment) + '/mo'],
+                    ]
+                  },
+                  { level: 2 as const, label: 'LEVEL 2 — Cash Leverage', tag: '70% All Cash', colorClass: 'border-orange-700 text-orange-400',
+                    price: selectedDeal.level2_offer_price, entry: selectedDeal.level2_entry_fee, monthly: 0,
+                    desc: 'ALL CASH — fast close 7 days. Entry IS the cash needed. No terms, no seller carry.',
+                    rows: [
+                      ['Offer Price', fmt(selectedDeal.level2_offer_price) + ' (70% of list)'],
+                      ['Agent Commission (3%)', fmt(Math.round((selectedDeal.level2_offer_price||0)*0.03))],
+                      ['Closing Costs (2%)', fmt(Math.round((selectedDeal.level2_offer_price||0)*0.02))],
+                      ['Renovation Reserve', '$10K'],
+                      ['TOTAL CASH NEEDED', fmt(selectedDeal.level2_entry_fee)],
+                      ['Monthly Payment', 'NONE — you own it outright'],
+                      ['Close Timeline', '7 days (vs 30-45 bank)'],
+                      ['Seller Carry', 'NONE'],
+                    ]
+                  },
+                  { level: 3 as const, label: 'LEVEL 3 — Win-Win Creative ⭐', tag: '100% + Terms', colorClass: 'border-green-700 text-green-400',
+                    price: selectedDeal.level3_offer_price, entry: selectedDeal.level3_entry_fee, monthly: selectedDeal.level3_monthly_payment,
+                    desc: 'Full asking price. Seller gets their number. You get terms that beat any bank.',
+                    rows: [
+                      ['Offer Price', fmt(selectedDeal.level3_offer_price) + ' (100% of list)'],
+                      ['Cash to Seller (3%)', fmt(selectedDeal.level3_cash_to_seller)],
+                      ['Agent Commission (6%)', fmt(Math.round((selectedDeal.level3_offer_price||0)*0.06))],
+                      ['Acquisition Fee (3%)', fmt(Math.round((selectedDeal.level3_offer_price||0)*0.03))],
+                      ['Closing + Reno + Other', '$15K'],
+                      ['TOTAL ENTRY FEE', fmt(selectedDeal.level3_entry_fee)],
+                      selectedDeal.level3_assume_mortgage && selectedDeal.level3_assume_mortgage > 0
+                        ? ['Assume Mortgage', fmt(selectedDeal.level3_assume_mortgage)]
+                        : ['Structure', 'Pure Seller Finance (Free & Clear)'],
+                      ['Seller Carry', fmt(selectedDeal.level3_seller_carry_amount)],
+                      ['Rate', (selectedDeal.level3_seller_carry_rate||5) + '% vs bank 7-9%'],
+                      ['Term', (selectedDeal.level3_seller_carry_term||40) + 'yr vs bank 30yr'],
+                      ['Monthly Payment', fmt(selectedDeal.level3_monthly_payment) + '/mo'],
+                    ]
+                  },
+                ] as const).map(({ level, label, tag, colorClass, price, entry, monthly, desc, rows }) => {
+                  const active = selectedLevel === level
+                  return (
+                    <div key={level} className={`border rounded-lg ${colorClass.split(' ')[0]} ${active ? 'ring-1 ring-white/20' : ''}`}>
+                      <div className="flex items-center justify-between p-3 cursor-pointer"
+                        onClick={() => setSelectedLevel(level)}>
+                        <div className="flex items-center gap-2">
+                          <input type="radio" checked={active} onChange={() => setSelectedLevel(level)}
+                            onClick={e => e.stopPropagation()} />
+                          <span className={`font-bold text-xs ${colorClass.split(' ')[1]}`}>{label}</span>
+                          <span className="text-xs bg-slate-700 px-2 py-0.5 rounded">{tag}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className={`font-gta ${colorClass.split(' ')[1]}`}>{fmt(price)}</div>
+                            <div className="text-xs text-slate-400">Entry: {fmt(entry)}</div>
+                          </div>
+                          <span className="text-slate-500">{active ? '▲' : '▼'}</span>
+                        </div>
+                      </div>
+                      {active && (
+                        <div className="px-3 pb-3 border-t border-slate-800">
+                          <p className="text-xs text-slate-400 my-2">{desc}</p>
+                          <div className="space-y-1">
+                            {rows.map(([k, v]) => (
+                              <div key={String(k)} className={`flex justify-between text-xs ${String(k).startsWith('TOTAL') ? 'font-bold border-t border-slate-700 pt-1 mt-1' : ''}`}>
+                                <span className="text-slate-400">{k}</span>
+                                <span className={String(k).startsWith('TOTAL') ? colorClass.split(' ')[1] : 'text-slate-200'}>{v}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
               <div className="flex gap-2">
                 <Button className="flex-1 bg-green-600 hover:bg-green-700 font-gta"
-                  onClick={() => { setSelectedDeal(null); navigate('/agent/email-closer', { state: { property: selectedDeal, analysis: selectedDeal, selected_level: 3 } }) }}>
-                  <Mail className="mr-2 w-4 h-4" /> SEND OFFER EMAIL (LEVEL 3)
+                  onClick={() => { setSelectedDeal(null); navigate('/agent/email-closer', { state: { property: selectedDeal, analysis: selectedDeal, selected_level: selectedLevel } }) }}>
+                  <Mail className="mr-2 w-4 h-4" /> SEND LEVEL {selectedLevel} OFFER EMAIL
                 </Button>
                 <Button variant="outline" onClick={() => setSelectedDeal(null)}>Close</Button>
               </div>
