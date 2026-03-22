@@ -153,12 +153,6 @@ function scoreProperty(property: any): any {
   const cashFlow = estimatedRent - monthlyPayment
   const dscr = monthlyPayment > 0 ? estimatedRent / monthlyPayment : 0
 
-  let cashFlowScore = 0
-  if (dscr >= 1.4) cashFlowScore = 15
-  else if (dscr >= 1.2) cashFlowScore = 10
-  else if (dscr >= 1.0) cashFlowScore = 5
-  else cashFlowScore = 0
-
   // Market Score (0-10pts)
   const tier1Cities = ['miami', 'fort lauderdale', 'coral gables', 'miami beach', 'brickell', 'coconut grove']
   const city = (property.city || '').toLowerCase()
@@ -174,36 +168,58 @@ function scoreProperty(property: any): any {
   else if (totalScore >= 50) { classification = 'Viable Deal'; classColor = 'blue' }
   else if (totalScore >= 35) { classification = 'Marginal'; classColor = 'orange' }
 
-  // Offer Bands - FIXED: each level has its own base price
+  // === OFFER STRUCTURE ===
   const level1Price = Math.round(listPrice * 0.70)
   const level2Price = Math.round(listPrice * 0.70)
   const level3Price = listPrice
-
-  // Entry Fee per level - FIXED: calculated on each level's offer price
   const reno = property.estimated_repairs || 10000
 
-  // Level 1: 70% + Terms - seller carry, so cash out of pocket is minimal
-  const l1CashToSeller = Math.round(level1Price * 0.03)  // 3% cash down
-  const l1AgentCommission = Math.round(level1Price * 0.03)  // 3% agent (motivated seller)
-  const l1PayMyself = Math.round(level1Price * 0.03)  // 3% acquisition fee
-  const l1Closing = 3000
-  const l1Entry = l1CashToSeller + l1AgentCommission + l1PayMyself + l1Closing + reno + 2000 + 2000
+  // Existing mortgage monthly payment (LOCKED - cannot negotiate)
+  const existingMortgageMonthly = hasMortgage ? Math.round(calcPayment(mortgage, intRate, 30)) : 0
 
-  // Level 2: 70% ALL CASH - entry IS the full cash purchase + costs
-  // No seller carry so entry = offer price + closing + reno
-  const l2Closing = Math.round(level2Price * 0.02)  // 2% closing
-  const l2Agent = Math.round(level2Price * 0.03)    // 3% agent
-  const l2Entry = level2Price + l2Closing + l2Agent + reno  // Full cash needed
+  // === LEVEL 1: 70% + Terms ===
+  // For SubTo: take over mortgage + seller finances equity gap only
+  // For Free&Clear: seller finances full 70%
+  const l1EquityGap = hasMortgage ? Math.max(0, level1Price - mortgage) : level1Price
+  const l1SellerCarryRate = hasMortgage ? Math.min(strategy.rate > 0 ? strategy.rate : 4, 4) : (strategy.rate > 0 ? strategy.rate : 5)
+  const l1SellerCarryMonthly = Math.round(calcPayment(l1EquityGap * 0.97, l1SellerCarryRate, strategy.term))
+  const l1TotalMonthly = existingMortgageMonthly + l1SellerCarryMonthly
+  const l1CashToSeller = Math.round(l1EquityGap * 0.03)
+  const l1Agent = Math.round(level1Price * 0.03)
+  const l1Acq = Math.round(level1Price * 0.03)
+  const l1Entry = l1CashToSeller + l1Agent + l1Acq + 3000 + reno + 4000
 
-  // Level 3: 100% + Terms - seller gets full price, we put down minimal
-  const l3CashToSeller = Math.round(level3Price * 0.03)  // 3% cash down
-  const l3AgentCommission = Math.round(level3Price * 0.06)  // 6% MLS agent
-  const l3PayMyself = Math.round(level3Price * 0.03)  // 3% acquisition
-  const l3Closing = 3000
-  const l3Entry = l3CashToSeller + l3AgentCommission + l3PayMyself + l3Closing + reno + 2000 + 2000
+  // === LEVEL 2: 70% ALL CASH ===
+  const l2Entry = level2Price + Math.round(level2Price * 0.02) + Math.round(level2Price * 0.03) + reno
 
-  const entryFeePct = level3Price > 0 ? (l3Entry / level3Price) * 100 : 0
-  const totalEntryFee = l3Entry  // for scoring purposes use L3
+  // === LEVEL 3: 100% + Terms ===
+  // For SubTo+Hybrid: take over mortgage + seller finances equity gap
+  // For Free&Clear: seller finances full 100%
+  const l3EquityGap = hasMortgage ? Math.max(0, level3Price - mortgage) : level3Price
+  const l3SellerCarryRate = hasMortgage ? Math.min(strategy.rate > 0 ? strategy.rate : 4, 4) : (strategy.rate > 0 ? strategy.rate : 5)
+  const l3SellerCarryMonthly = Math.round(calcPayment(l3EquityGap * 0.97, l3SellerCarryRate, strategy.term))
+  const l3TotalMonthly = existingMortgageMonthly + l3SellerCarryMonthly
+  const l3CashToSeller = Math.round(l3EquityGap * 0.03)
+  const l3Agent = Math.round(level3Price * 0.06)
+  const l3Acq = Math.round(level3Price * 0.03)
+  const l3Entry = l3CashToSeller + l3Agent + l3Acq + 3000 + reno + 4000
+
+  // Update cash flow with correct monthly
+  const correctMonthly = l3TotalMonthly
+  const cashFlow = estimatedRent - correctMonthly
+  const dscr = correctMonthly > 0 ? estimatedRent / correctMonthly : 0
+
+  let cashFlowScore = 0
+  if (dscr >= 1.4) cashFlowScore = 15
+  else if (dscr >= 1.2) cashFlowScore = 10
+  else if (dscr >= 1.0) cashFlowScore = 5
+
+  const totalScore = Math.min(100, motivationScore + equityScore + rateScore + cashFlowScore + marketScore)
+  let classification = 'Pass'
+  if (totalScore >= 80) classification = 'Elite Deal'
+  else if (totalScore >= 65) classification = 'Strong Deal'
+  else if (totalScore >= 50) classification = 'Viable Deal'
+  else if (totalScore >= 35) classification = 'Marginal'
 
   return {
     property_id: property.id,
@@ -212,6 +228,7 @@ function scoreProperty(property: any): any {
     state: property.state,
     listing_price: listPrice,
     mortgage_balance: mortgage,
+    mortgage_rate: intRate,
     equity_amount: equity,
     equity_percent: Math.round(equityPct * 10) / 10,
     equity_class: equityClass,
@@ -233,32 +250,33 @@ function scoreProperty(property: any): any {
     // Offer
     offer_price: level3Price,
     offer_percent: 100,
-    offer_percent_level1: 70,
-    offer_percent_level2: 70,
 
-    // Level 1: 70% + Terms (Negotiation Anchor)
+    // Level 1: 70% + Terms
     level1_offer_price: level1Price,
     level1_entry_fee: Math.round(l1Entry),
-    level1_monthly_payment: Math.round(calcPayment(level1Price * 0.97, useRate > 0 ? useRate : 5, strategy.term)),
+    level1_monthly_payment: l1TotalMonthly,
+    level1_mortgage_monthly: existingMortgageMonthly,
+    level1_carry_monthly: l1SellerCarryMonthly,
     level1_cash_to_seller: l1CashToSeller,
-    level1_seller_carry_amount: Math.round(level1Price * 0.97),
-    level1_seller_carry_rate: useRate > 0 ? useRate : 5,
+    level1_seller_carry_amount: Math.round(l1EquityGap * 0.97),
+    level1_seller_carry_rate: l1SellerCarryRate,
     level1_seller_carry_term: strategy.term,
 
-    // Level 2: 70% ALL CASH (entry = full cash needed)
+    // Level 2: 70% ALL CASH
     level2_offer_price: level2Price,
     level2_entry_fee: Math.round(l2Entry),
-    level2_cash_needed: Math.round(l2Entry),  // full amount needed in cash
 
-    // Level 3: 100% + Terms (Win-Win Creative)
+    // Level 3: 100% + Terms
     level3_offer_price: level3Price,
     level3_entry_fee: Math.round(l3Entry),
-    level3_monthly_payment: Math.round(monthlyPayment),
+    level3_monthly_payment: l3TotalMonthly,
+    level3_mortgage_monthly: existingMortgageMonthly,
+    level3_carry_monthly: l3SellerCarryMonthly,
     level3_assume_mortgage: hasMortgage ? mortgage : 0,
-    level3_seller_carry_amount: Math.round(financeAmount),
-    level3_seller_carry_rate: useRate,
+    level3_seller_carry_amount: Math.round(l3EquityGap * 0.97),
+    level3_seller_carry_rate: l3SellerCarryRate,
     level3_seller_carry_term: strategy.term,
-    level3_cash_to_seller: Math.round(offerPrice * 0.03),
+    level3_cash_to_seller: l3CashToSeller,
 
     // Recommended
     recommended_level: totalScore >= 60 ? 3 : totalScore >= 45 ? 2 : 1,
@@ -266,11 +284,11 @@ function scoreProperty(property: any): any {
 
     // Cash Flow
     estimated_rent: estimatedRent,
-    monthly_payment: Math.round(monthlyPayment),
+    monthly_payment: correctMonthly,
     monthly_cash_flow: Math.round(cashFlow),
     dscr: Math.round(dscr * 100) / 100,
-    entry_fee_total: Math.round(totalEntryFee),
-    entry_fee_pct: Math.round(entryFeePct * 10) / 10,
+    entry_fee_total: Math.round(l3Entry),
+    entry_fee_pct: Math.round((l3Entry / level3Price) * 1000) / 10,
 
     // Comps
     comps_count: 0,

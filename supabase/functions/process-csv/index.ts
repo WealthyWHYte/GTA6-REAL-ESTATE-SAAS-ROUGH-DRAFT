@@ -80,7 +80,7 @@ function detectColumnType(header: string, sampleValues: string[]): string | null
   if (bathHeaders.some(x => h.includes(x))) return 'bathrooms'
   
   // Listing Price - Handle "Last Sale Amount", "Sale Price", etc.
-  if (h.includes('sale') && h.includes('amount')) return 'listing_price'
+  if (h.includes('sale') && h.includes('amount')) return 'last_sale_amount'
   if (h.includes('sale') && h.includes('price')) return 'listing_price'
   if (h.includes('list') && h.includes('price')) return 'listing_price'
   
@@ -175,7 +175,7 @@ function detectColumnType(header: string, sampleValues: string[]): string | null
   
   // Mortgage
   if (h.includes('mortgage') && h.includes('balance')) return 'open_mortgage_balance'
-  if (h.includes('mortgage') && h.includes('interest')) return 'recorded_mortgage_interest_rate'
+  if (h.includes('mortgage') && h.includes('interest')) return 'interest_rate'
   if (h.includes('mortgage') && h.includes('document')) return 'mortgage_document_date'
   if (h.includes('lender')) return 'lender_name'
   
@@ -327,6 +327,7 @@ serve(async (req: Request) => {
           last_sale_date: row.last_sale_date || null,
           last_sale_amount: parseNumber(row.last_sale_amount || '') || null,
           open_mortgage_balance: parseNumber(row.open_mortgage_balance || '') || null,
+          interest_rate: parseNumber(row.interest_rate || '') || null,
           days_on_market: parseNumber(row.days_on_market || '') || null,
           tax_amount: parseNumber(row.tax_amount || '') || null,
           year_built: parseNumber(row.year_built || '') || null,
