@@ -152,7 +152,17 @@ export default function UnderwriterPage() {
 
   // Apply all filters
   const filtered = (analysis || []).filter(d => {
-    if (filterStrategy !== 'all' && !d.strategy?.includes(filterStrategy)) return false
+    if (filterStrategy !== 'all') {
+      if (filterStrategy === 'Subject-To') {
+        if (d.strategy !== 'Subject-To') return false
+      } else if (filterStrategy === 'Seller Finance') {
+        if (d.strategy !== 'Seller Finance') return false
+      } else if (filterStrategy === 'Hybrid') {
+        if (!d.strategy?.includes('Hybrid')) return false
+      } else {
+        if (!d.strategy?.includes(filterStrategy)) return false
+      }
+    }
     if (d.win_win_score < filterScore) return false
     if (filterCity && !d.city?.toLowerCase().includes(filterCity.toLowerCase())) return false
     if (filterMinPrice && d.offer_price && d.offer_price < Number(filterMinPrice)) return false
@@ -282,6 +292,8 @@ export default function UnderwriterPage() {
                 onClick={() => setFilterStrategy('Subject-To')} className="h-8 text-xs">Subject-To</Button>
               <Button size="sm" variant={filterStrategy === 'Seller Finance' ? 'default' : 'outline'}
                 onClick={() => setFilterStrategy('Seller Finance')} className="h-8 text-xs">Seller Finance</Button>
+              <Button size="sm" variant={filterStrategy === 'Hybrid' ? 'default' : 'outline'}
+                onClick={() => setFilterStrategy('Hybrid')} className="h-8 text-xs">Hybrid</Button>
 
               {/* Score */}
               <Button size="sm" variant={filterScore === 65 ? 'default' : 'outline'}
