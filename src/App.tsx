@@ -50,6 +50,7 @@ import CourierDashboardPage from "./pages/courier/dashboard";
 import DriverPortalPage from "./pages/courier/driver-portal";
 import ShipperPortalPage from "./pages/courier/shipper-portal";
 import AIAgentsPage from "./pages/courier/ai-agents";
+import DataFlowPage from "./pages/data-flow";
 
 const queryClient = new QueryClient();
 
@@ -479,7 +480,20 @@ const App = () => (
               </ProtectedRoute>
             }
           />
-          
+
+          {/* Data Flow - Admin Architecture Page */}
+          <Route
+            path="/data-flow"
+            element={
+              <ProtectedRoute>
+                <>
+                  <GTAMoneyBar />
+                  <DataFlowPage />
+                </>
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

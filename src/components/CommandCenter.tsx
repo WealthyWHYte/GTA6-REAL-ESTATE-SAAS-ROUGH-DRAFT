@@ -22,7 +22,8 @@ import {
   Send,
   FileText,
   Mail,
-  ArrowLeft
+  ArrowLeft,
+  GitBranch
 } from "lucide-react";
 
 const CommandCenter = () => {
@@ -324,6 +325,16 @@ const CommandCenter = () => {
               <Mail className="mr-2 w-4 h-4" />
               Send Follow-ups
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start border-vice-cyan text-vice-cyan"
+              onClick={() => navigate("/data-flow")}
+            >
+              <GitBranch className="mr-2 w-4 h-4" />
+              Data Flow (System Architecture)
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
