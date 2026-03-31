@@ -548,13 +548,23 @@ export default function UnderwriterPage() {
                       ['Acquisition Fee (3%)', fmt(Math.round((selectedDeal.level3_offer_price||0)*0.03))],
                       ['Closing + Reno + Other', '$15K'],
                       ['TOTAL ENTRY FEE', fmt(selectedDeal.level3_entry_fee)],
-                      selectedDeal.level3_assume_mortgage && selectedDeal.level3_assume_mortgage > 0
-                        ? ['Assume Mortgage', fmt(selectedDeal.level3_assume_mortgage)]
-                        : ['Structure', 'Pure Seller Finance (Free & Clear)'],
-                      ['Seller Carry', fmt(selectedDeal.level3_seller_carry_amount)],
-                      ['Rate', (selectedDeal.level3_seller_carry_rate||5) + '% vs bank 7-9%'],
-                      ['Term', (selectedDeal.level3_seller_carry_term||40) + 'yr vs bank 30yr'],
-                      ['Monthly Payment', fmt(selectedDeal.level3_monthly_payment) + '/mo'],
+                      ...(selectedDeal.level3_assume_mortgage && selectedDeal.level3_assume_mortgage > 0 ? [
+                        ['── EXISTING MORTGAGE ──', '(You assume as-is)'],
+                        ['Mortgage Balance', fmt(selectedDeal.level3_assume_mortgage)],
+                        ['Existing Rate', ((selectedDeal as any).mortgage_rate ?? (selectedDeal as any).interest_rate ?? '?') + '% (LOCKED — you keep this rate)'],
+                        ['Mortgage Monthly', fmt((selectedDeal as any).level3_mortgage_monthly) + '/mo (fixed)'],
+                        ['── SELLER CARRY (Gap) ──', '(Negotiated terms)'],
+                        ['Equity Gap to Finance', fmt(selectedDeal.level3_seller_carry_amount)],
+                        ['Negotiated Rate', (selectedDeal.level3_seller_carry_rate||4) + '% (vs bank 7-9%)'],
+                        ['Term', (selectedDeal.level3_seller_carry_term||40) + 'yr'],
+                        ['Carry Monthly', fmt((selectedDeal as any).level3_carry_monthly) + '/mo'],
+                      ] as [string,string][] : [
+                        ['── SELLER CARRY (Full) ──', '(Free & Clear)'],
+                        ['Seller Carry Amount', fmt(selectedDeal.level3_seller_carry_amount)],
+                        ['Rate', (selectedDeal.level3_seller_carry_rate||5) + '% vs bank 7-9%'],
+                        ['Term', (selectedDeal.level3_seller_carry_term||40) + 'yr vs bank 30yr'],
+                      ] as [string,string][]),
+                      ['TOTAL MONTHLY', fmt(selectedDeal.level3_monthly_payment) + '/mo'],
                     ]
                   },
                 ] as const).map(({ level, label, tag, colorClass, price, entry, monthly, desc, rows }) => {
