@@ -509,7 +509,7 @@ export default function UnderwriterPage() {
                       ...(selectedDeal.level3_assume_mortgage && selectedDeal.level3_assume_mortgage > 0 ? [
                         ['── EXISTING MORTGAGE ──', '(You assume as-is)'],
                         ['Mortgage Balance', fmt((selectedDeal as any).mortgage_balance || selectedDeal.level3_assume_mortgage)],
-                        ['Existing Rate', ((selectedDeal as any).mortgage_rate ?? (selectedDeal as any).interest_rate || '?') + '% (LOCKED — you keep this rate)'],
+                        ['Existing Rate', ((selectedDeal as any).mortgage_rate ?? (selectedDeal as any).interest_rate ?? '?') + '% (LOCKED — you keep this rate)'],
                         ['Mortgage Monthly', fmt((selectedDeal as any).level1_mortgage_monthly) + '/mo (fixed)'],
                         ['── SELLER CARRY (Gap) ──', '(Negotiated terms)'],
                         ['Equity Gap to Finance', fmt(selectedDeal.level1_seller_carry_amount)],
