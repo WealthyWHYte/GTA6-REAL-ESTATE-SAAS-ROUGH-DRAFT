@@ -314,7 +314,7 @@ serve(async (req: Request) => {
           state: row.state || '',
           zip: row.zip || '',
           county: row.county || '',
-          sqft: parseNumber(row.sqft || '') || null,
+          living_square_feet: parseNumber(row.sqft || row.living_square_feet || '') || null,
           bedrooms: parseNumber(row.bedrooms || '') || null,
           bathrooms: parseNumber(row.bathrooms || '') || null,
           listing_price: parseNumber(row.listing_price || '') || null,

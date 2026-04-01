@@ -11,10 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import {
-  Mail, Send, MessageSquare, Reply, AlertTriangle,
-  CheckCircle, Clock, Users, History, ChevronRight, ArrowLeft
-} from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Calculator, CheckCircle, ChevronDown, ChevronRight, Clock, History, Home, Mail, MessageSquare, Phone, Reply, Send, Target, Users, User, Building, DollarSign, TrendingUp, Percent } from 'lucide-react'
 
 const OBJECTION_TEMPLATES = [
   { type: 'low', label: 'Price Too Low', icon: '💰' },
@@ -36,13 +33,16 @@ export default function EmailCloserPage() {
   const [emailBody, setEmailBody] = useState('')
   const [showPreview, setShowPreview] = useState(false)
   const [sendSuccess, setSendSuccess] = useState(false)
+  const [expandedLevel, setExpandedLevel] = useState<number | null>(1)
+  const [showFullPropertyDetails, setShowFullPropertyDetails] = useState(false)
 
   const queryClient = useQueryClient()
 
-  // Get property/analysis from underwriter navigation
+  // Get property/analysis from underwriter navigation (data is already merged)
   useEffect(() => {
     if (location.state?.property) {
-      setSelectedOffer(location.state.property)
+      const mergedData = location.state.property
+      setSelectedOffer(mergedData)
       setSelectedLevel(location.state.selected_level || 1)
     }
   }, [location.state])
@@ -110,7 +110,7 @@ export default function EmailCloserPage() {
   // Get level data helper
   const getLevelData = () => {
     if (!selectedOffer) return null
-    const listingPrice = selectedOffer.listing_price || selectedOffer.offer_price / (selectedOffer.offer_percent / 100)
+    const listingPrice = selectedOffer.listing_price || selectedOffer.level3_offer_price || selectedOffer.offer_price || 0
     return {
       1: {
         offer_price: selectedOffer.level1_offer_price || listingPrice * 0.7,
@@ -357,16 +357,27 @@ export default function EmailCloserPage() {
             {selectedOffer && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="w-5 h-5" />
-                    {selectedOffer.address || selectedOffer.properties?.address}
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Target className="w-5 h-5" />
+                      {selectedOffer.address || selectedOffer.properties?.address}
+                    </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowFullPropertyDetails(!showFullPropertyDetails)}
+                    >
+                      {showFullPropertyDetails ? 'Hide Details' : 'Show Full Details'}
+                      <ChevronDown className={`w-4 h-4 ml-1 transition-transform ${showFullPropertyDetails ? 'rotate-180' : ''}`} />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-3 gap-4">
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-3 gap-4 mb-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Asking Price</p>
-                      <p className="text-lg font-bold">${(selectedOffer.listing_price || selectedOffer.properties?.listing_price || 0).toLocaleString()}</p>
+                      <p className="text-lg font-bold">${(selectedOffer.listing_price || selectedOffer.level3_offer_price || selectedOffer.properties?.listing_price || 0).toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Win-Win Score</p>
@@ -377,11 +388,167 @@ export default function EmailCloserPage() {
                       <Badge>{selectedOffer.strategy || 'Creative Finance'}</Badge>
                     </div>
                   </div>
+
+                  {/* Agent Information */}
+                  <div className="p-4 bg-muted/50 rounded-lg mb-4">
+                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Listing Agent / Seller Contact
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Name</p>
+                        <p className="text-sm font-medium">
+                          {selectedOffer.agent_name || selectedOffer.listing_agent_full_name || selectedOffer.seller_name || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Email</p>
+                        <p className="text-sm font-medium">
+                          {selectedOffer.agent_email || selectedOffer.listing_agent_email || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Phone</p>
+                        <p className="text-sm font-medium">
+                          {selectedOffer.agent_phone || selectedOffer.listing_agent_phone || selectedOffer.seller_phone || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Brokerage</p>
+                        <p className="text-sm font-medium">
+                          {selectedOffer.brokerage || selectedOffer.listing_brokerage_name || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expanded Property Details */}
+                  {showFullPropertyDetails && (
+                    <div className="space-y-4 pt-4 border-t">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <Home className="w-4 h-4" />
+                        Property Details
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Bedrooms</p>
+                          <p className="text-sm font-medium">{selectedOffer.bedrooms || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Bathrooms</p>
+                          <p className="text-sm font-medium">{selectedOffer.bathrooms || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Square Feet</p>
+                          <p className="text-sm font-medium">{selectedOffer.living_square_feet || selectedOffer.sqft || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Year Built</p>
+                          <p className="text-sm font-medium">{selectedOffer.year_built || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Property Type</p>
+                          <p className="text-sm font-medium">{selectedOffer.property_type || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Days on Market</p>
+                          <p className="text-sm font-medium">{selectedOffer.days_on_market || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Price/Sqft</p>
+                          <p className="text-sm font-medium">${selectedOffer.price_per_sqft ? selectedOffer.price_per_sqft.toLocaleString() : 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">HOA</p>
+                          <p className="text-sm font-medium">${selectedOffer.hoa || selectedOffer.hoa_fee || 'N/A'}/mo</p>
+                        </div>
+                      </div>
+
+                      {/* Financial Details */}
+                      <h4 className="text-sm font-semibold flex items-center gap-2 mt-4">
+                        <DollarSign className="w-4 h-4" />
+                        Financial Details
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Estimated Value</p>
+                          <p className="text-sm font-medium">${(selectedOffer.estimated_value || 0).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Mortgage Balance</p>
+                          <p className="text-sm font-medium">${(selectedOffer.open_mortgage_balance || 0).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Equity</p>
+                          <p className="text-sm font-medium">{selectedOffer.equity_percent ? `${Math.round(selectedOffer.equity_percent)}%` : 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Mortgage Rate</p>
+                          <p className="text-sm font-medium">{selectedOffer.mortgage_rate ? `${selectedOffer.mortgage_rate}%` : 'N/A'}</p>
+                        </div>
+                      </div>
+
+                      {/* Underwriting Details */}
+                      <h4 className="text-sm font-semibold flex items-center gap-2 mt-4">
+                        <TrendingUp className="w-4 h-4" />
+                        Underwriting Analysis
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground">ARV (After Repair Value)</p>
+                          <p className="text-sm font-medium">${(selectedOffer.estimated_arv || 0).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Estimated Equity</p>
+                          <p className="text-sm font-medium">${(selectedOffer.estimated_equity || 0).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Expected ROI</p>
+                          <p className="text-sm font-medium">{selectedOffer.expected_roi ? `${selectedOffer.expected_roi}%` : 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Max Offer Price</p>
+                          <p className="text-sm font-medium">${(selectedOffer.max_offer_price || 0).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Recommendation</p>
+                          <Badge variant={selectedOffer.recommendation?.includes('Elite') ? 'default' : 'secondary'}>
+                            {selectedOffer.recommendation || 'N/A'}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Deal Strengths */}
+                      {selectedOffer.factors && (
+                        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                          <h5 className="text-sm font-semibold text-green-700 mb-2">Deal Strengths</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(selectedOffer.factors)
+                              .filter(([_, v]: any) => v === true)
+                              .map(([k]: any) => (
+                                <Badge key={k} variant="outline" className="bg-green-100 text-green-700">
+                                  {k.replace(/_/g, ' ')}
+                                </Badge>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* AI Reasoning */}
+                      {selectedOffer.reasoning && (
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <h5 className="text-sm font-semibold text-blue-700 mb-2">AI Analysis</h5>
+                          <p className="text-sm text-blue-900">{selectedOffer.reasoning}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
 
-            {/* Level Selector */}
+            {/* Level Selector - Expandable */}
             {selectedOffer && (
               <Card>
                 <CardHeader>
@@ -391,64 +558,136 @@ export default function EmailCloserPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {/* Level 1 Button */}
-                    <Button
-                      variant={selectedLevel === 1 ? "default" : "outline"}
-                      className="flex flex-col h-auto py-4 px-3 items-start"
-                      onClick={() => { setSelectedLevel(1); setEmailType('offer_presentation'); }}
-                    >
-                      <div className="font-bold">Level 1: 70% + Terms</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Offer: ${(levelData?.offer_price || 0).toLocaleString()}
+                  <div className="grid gap-3">
+                    {/* Level 1 */}
+                    <div className={`border rounded-lg transition-all ${selectedLevel === 1 ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
+                      <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => { setSelectedLevel(1); setEmailType('offer_presentation'); setExpandedLevel(expandedLevel === 1 ? null : 1); }}>
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <p className="font-bold">Level 1: 70% + Terms (Seller Finance)</p>
+                            <p className="text-sm text-muted-foreground">Offer: ${(selectedOffer?.level1_offer_price || 0).toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {selectedLevel === 1 && <Badge className="bg-vice-green text-black">Selected</Badge>}
+                          <ChevronDown className={`w-5 h-5 transition-transform ${expandedLevel === 1 ? 'rotate-180' : ''}`} />
+                        </div>
                       </div>
-                      {selectedLevel === 1 && (
-                        <Badge className="mt-2 bg-vice-green text-black">Selected</Badge>
+                      {expandedLevel === 1 && (
+                        <div className="px-4 pb-4 border-t pt-4 space-y-3">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Offer Price</p>
+                              <p className="text-lg font-bold">${(selectedOffer.level1_offer_price || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Entry Fee (Down)</p>
+                              <p className="text-lg font-bold">${(selectedOffer.level1_entry_fee || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Monthly Payment</p>
+                              <p className="text-lg font-bold">${Math.round(selectedOffer.level1_monthly_payment || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Interest Rate</p>
+                              <p className="text-lg font-bold">{selectedOffer.level1_interest_rate || 'N/A'}%</p>
+                            </div>
+                          </div>
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm">
+                            <p className="font-semibold text-blue-700">Structure:</p>
+                            <p className="text-blue-900">70% of asking price with seller financing. Seller carries a promissory note with monthly payments over agreed term.</p>
+                          </div>
+                        </div>
                       )}
-                    </Button>
+                    </div>
 
-                    {/* Level 2 Button */}
-                    <Button
-                      variant={selectedLevel === 2 ? "default" : "outline"}
-                      className="flex flex-col h-auto py-4 px-3 items-start"
-                      onClick={() => { setSelectedLevel(2); setEmailType('offer_presentation'); }}
-                    >
-                      <div className="font-bold">Level 2: 70% Cash</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Offer: ${(levelData?.offer_price || 0).toLocaleString()}
+                    {/* Level 2 */}
+                    <div className={`border rounded-lg transition-all ${selectedLevel === 2 ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
+                      <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => { setSelectedLevel(2); setEmailType('offer_presentation'); setExpandedLevel(expandedLevel === 2 ? null : 2); }}>
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <p className="font-bold">Level 2: 70% All Cash</p>
+                            <p className="text-sm text-muted-foreground">Offer: ${(selectedOffer?.level2_offer_price || 0).toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {selectedLevel === 2 && <Badge className="bg-vice-green text-black">Selected</Badge>}
+                          <ChevronDown className={`w-5 h-5 transition-transform ${expandedLevel === 2 ? 'rotate-180' : ''}`} />
+                        </div>
                       </div>
-                      {selectedLevel === 2 && (
-                        <Badge className="mt-2 bg-vice-green text-black">Selected</Badge>
+                      {expandedLevel === 2 && (
+                        <div className="px-4 pb-4 border-t pt-4 space-y-3">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Offer Price</p>
+                              <p className="text-lg font-bold">${(selectedOffer.level2_offer_price || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Cash Required</p>
+                              <p className="text-lg font-bold">${(selectedOffer.level2_entry_fee || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Monthly Payment</p>
+                              <p className="text-lg font-bold">$0 (All Cash)</p>
+                            </div>
+                          </div>
+                          <div className="p-3 bg-green-50 border border-green-200 rounded text-sm">
+                            <p className="font-semibold text-green-700">Structure:</p>
+                            <p className="text-green-900">70% of asking price, all-cash offer. No monthly payments, fastest closing, lowest seller risk.</p>
+                          </div>
+                        </div>
                       )}
-                    </Button>
+                    </div>
 
-                    {/* Level 3 Button */}
-                    <Button
-                      variant={selectedLevel === 3 ? "default" : "outline"}
-                      className="flex flex-col h-auto py-4 px-3 items-start"
-                      onClick={() => { setSelectedLevel(3); setEmailType('offer_presentation'); }}
-                    >
-                      <div className="font-bold">Level 3: 100% + Terms</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Offer: ${(levelData?.offer_price || 0).toLocaleString()}
+                    {/* Level 3 */}
+                    <div className={`border rounded-lg transition-all ${selectedLevel === 3 ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
+                      <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => { setSelectedLevel(3); setEmailType('offer_presentation'); setExpandedLevel(expandedLevel === 3 ? null : 3); }}>
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <p className="font-bold">Level 3: 100% Full Price + Terms</p>
+                            <p className="text-sm text-muted-foreground">Offer: ${(selectedOffer?.level3_offer_price || 0).toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {selectedLevel === 3 && <Badge className="bg-vice-green text-black">Selected</Badge>}
+                          <ChevronDown className={`w-5 h-5 transition-transform ${expandedLevel === 3 ? 'rotate-180' : ''}`} />
+                        </div>
                       </div>
-                      {selectedLevel === 3 && (
-                        <Badge className="mt-2 bg-vice-green text-black">Selected</Badge>
-                      )}
-                    </Button>
-                  </div>
-
-                  {/* Level Details */}
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm font-medium mb-2">Selected Structure: {levelData?.structure}</p>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>Entry Fee: <span className="font-medium">${(levelData?.entry_fee || 0).toLocaleString()}</span></div>
-                      <div>Monthly: <span className="font-medium">${Math.round(levelData?.monthly || 0).toLocaleString()}</span></div>
-                      {selectedLevel === 3 && levelData?.assume_mortgage && (
-                        <div>Assume Mortgage: <span className="font-medium">${(levelData.assume_mortgage).toLocaleString()}</span></div>
-                      )}
-                      {selectedLevel === 3 && levelData?.seller_carry && (
-                        <div>Seller Carries: <span className="font-medium">${(levelData.seller_carry).toLocaleString()}</span></div>
+                      {expandedLevel === 3 && (
+                        <div className="px-4 pb-4 border-t pt-4 space-y-3">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Offer Price</p>
+                              <p className="text-lg font-bold">${(selectedOffer.level3_offer_price || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Entry Fee</p>
+                              <p className="text-lg font-bold">${(selectedOffer.level3_entry_fee || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Monthly Payment</p>
+                              <p className="text-lg font-bold">${Math.round(selectedOffer.level3_monthly_payment || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Interest Rate</p>
+                              <p className="text-lg font-bold">{selectedOffer.level3_interest_rate || 'N/A'}%</p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mt-3">
+                            <div className="p-3 bg-purple-50 border border-purple-200 rounded">
+                              <p className="text-xs text-purple-700 font-semibold">Assume Existing Mortgage</p>
+                              <p className="text-lg font-bold text-purple-900">${(selectedOffer.level3_assume_mortgage || 0).toLocaleString()}</p>
+                            </div>
+                            <div className="p-3 bg-orange-50 border border-orange-200 rounded">
+                              <p className="text-xs text-orange-700 font-semibold">Seller Carry (2nd Position)</p>
+                              <p className="text-lg font-bold text-orange-900">${(selectedOffer.level3_seller_carry_amount || 0).toLocaleString()}</p>
+                            </div>
+                          </div>
+                          <div className="p-3 bg-purple-50 border border-purple-200 rounded text-sm">
+                            <p className="font-semibold text-purple-700">Structure:</p>
+                            <p className="text-purple-900">Full asking price with creative terms. Buyer assumes existing mortgage + seller carries second position. Highest seller acceptance rate.</p>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>

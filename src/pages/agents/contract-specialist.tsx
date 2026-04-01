@@ -94,18 +94,64 @@ export default function ContractSpecialistPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // Get properties ready for offers
+  // Get properties ready for offers - with property_analysis joined
   const { data: properties } = useQuery({
     queryKey: ['properties_offer_generation'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      const { data } = await supabase
-        .from('properties')
+
+      // Get property_analysis for this user
+      const { data: analysisData } = await supabase
+        .from('property_analysis')
         .select('*')
         .eq('account_id', user?.id)
-        .in('pipeline_status', ['scouted', 'market_research', 'researched', 'underwriting', 'underwritten', 'offer_generation', 'offer_sent'])
+
+      if (!analysisData?.length) return []
+
+      // Get properties with analysis data merged
+      const propIds = analysisData.map(a => a.property_id).filter(Boolean)
+      const { data } = await supabase
+        .from('properties')
+        .select(`
+          *,
+          property_analysis:property_id (
+            win_win_score,
+            strategy,
+            recommendation,
+            reasoning,
+            level1_offer_price,
+            level1_entry_fee,
+            level1_monthly_payment,
+            level2_offer_price,
+            level2_entry_fee,
+            level3_offer_price,
+            level3_entry_fee,
+            level3_monthly_payment,
+            level3_assume_mortgage,
+            level3_seller_carry_amount
+          )
+        `)
+        .eq('account_id', user?.id)
+        .in('id', propIds)
         .order('created_at', { ascending: false })
-      return data || []
+
+      // Merge analysis data into properties
+      return (data || []).map((p: any) => ({
+        ...p,
+        win_win_score: p.property_analysis?.[0]?.win_win_score,
+        strategy: p.property_analysis?.[0]?.strategy,
+        recommendation: p.property_analysis?.[0]?.recommendation,
+        level1_offer_price: p.property_analysis?.[0]?.level1_offer_price,
+        level1_entry_fee: p.property_analysis?.[0]?.level1_entry_fee,
+        level1_monthly_payment: p.property_analysis?.[0]?.level1_monthly_payment,
+        level2_offer_price: p.property_analysis?.[0]?.level2_offer_price,
+        level2_entry_fee: p.property_analysis?.[0]?.level2_entry_fee,
+        level3_offer_price: p.property_analysis?.[0]?.level3_offer_price,
+        level3_entry_fee: p.property_analysis?.[0]?.level3_entry_fee,
+        level3_monthly_payment: p.property_analysis?.[0]?.level3_monthly_payment,
+        level3_assume_mortgage: p.property_analysis?.[0]?.level3_assume_mortgage,
+        level3_seller_carry_amount: p.property_analysis?.[0]?.level3_seller_carry_amount,
+      }))
     }
   })
 

@@ -55,18 +55,60 @@ export default function DispoAgentPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // Get properties ready for disposition
+  // Get properties ready for disposition - with analysis and communications
   const { data: dispoProperties } = useQuery({
     queryKey: ['properties_disposition'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
+
+      // Get property_analysis for this user
+      const { data: analysisData } = await supabase
+        .from('property_analysis')
+        .select('*')
+        .eq('account_id', user?.id)
+
+      const analysisMap: Record<string, any> = {}
+      analysisData?.forEach((a: any) => {
+        analysisMap[a.property_id] = a
+      })
+
+      // Get properties with analysis and communications
       const { data } = await supabase
         .from('properties')
-        .select('*')
+        .select(`
+          *,
+          communications (
+            id,
+            direction,
+            status,
+            subject,
+            sent_at,
+            replied_at
+          )
+        `)
         .eq('account_id', user?.id)
         .in('pipeline_status', ['scouted', 'market_research', 'researched', 'underwriting', 'underwritten', 'offer_generation', 'offer_sent', 'accepted', 'disposition'])
         .order('created_at', { ascending: false })
-      return data || []
+
+      // Merge analysis data into properties
+      return (data || []).map((p: any) => ({
+        ...p,
+        win_win_score: analysisMap[p.id]?.win_win_score,
+        strategy: analysisMap[p.id]?.strategy,
+        recommendation: analysisMap[p.id]?.recommendation,
+        level1_offer_price: analysisMap[p.id]?.level1_offer_price,
+        level1_entry_fee: analysisMap[p.id]?.level1_entry_fee,
+        level1_monthly_payment: analysisMap[p.id]?.level1_monthly_payment,
+        level2_offer_price: analysisMap[p.id]?.level2_offer_price,
+        level2_entry_fee: analysisMap[p.id]?.level2_entry_fee,
+        level3_offer_price: analysisMap[p.id]?.level3_offer_price,
+        level3_entry_fee: analysisMap[p.id]?.level3_entry_fee,
+        level3_monthly_payment: analysisMap[p.id]?.level3_monthly_payment,
+        level3_assume_mortgage: analysisMap[p.id]?.level3_assume_mortgage,
+        level3_seller_carry_amount: analysisMap[p.id]?.level3_seller_carry_amount,
+        communications_count: p.communications?.length || 0,
+        has_replies: p.communications?.some((c: any) => c.direction === 'inbound'),
+      }))
     }
   })
 
