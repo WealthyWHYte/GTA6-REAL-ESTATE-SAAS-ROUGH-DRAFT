@@ -150,16 +150,10 @@ export default function UnderwriterPage() {
             estimated_value,
             property_type,
             year_built,
-            hoa_fee,
-            price_per_sqft,
             listing_agent_full_name,
-            listing_agent_first_name,
-            listing_agent_last_name,
             listing_agent_email,
             listing_agent_phone,
-            listing_brokerage_name,
-            interest_rate,
-            recorded_mortgage_interest_rate
+            interest_rate
           )
         `)
         .eq('account_id', user?.id)
