@@ -99,7 +99,7 @@ export default function EmailCloserPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from('follow_up_queue')
-        .select('*, offers(*, properties(*))')
+        .select('*')
         .eq('status', 'pending')
         .lte('scheduled_for', new Date().toISOString())
         .order('scheduled_for', { ascending: true })

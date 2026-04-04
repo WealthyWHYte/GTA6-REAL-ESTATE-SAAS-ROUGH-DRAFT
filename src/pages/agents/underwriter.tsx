@@ -129,13 +129,14 @@ export default function UnderwriterPage() {
       if (!user) return []
 
       // Simple fetch - property_analysis already stores address/city/state
-      const { data: analysisData } = await supabase
+      const { data: analysisData, error: analysisError } = await supabase
         .from('property_analysis')
         .select('*')
         .eq('account_id', user?.id)
         .order('win_win_score', { ascending: false })
 
-      if (!analysisData?.length) return []
+      if (analysisError) { console.error('Analysis query error:', analysisError); return [] }
+      if (!analysisData?.length) { console.log('No analysis data found for user:', user?.id); return [] }
 
       // Merge property data into analysis for easy access
       return analysisData as Deal[]
