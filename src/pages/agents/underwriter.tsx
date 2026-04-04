@@ -128,64 +128,17 @@ export default function UnderwriterPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return []
 
-      // Get property analysis with property details joined
+      // Simple fetch - property_analysis already stores address/city/state
       const { data: analysisData } = await supabase
         .from('property_analysis')
-        .select(`
-          *,
-          properties!property_id (
-            id,
-            address,
-            city,
-            state,
-            zip,
-            bedrooms,
-            bathrooms,
-            living_square_feet,
-            listing_price,
-            days_on_market,
-            open_mortgage_balance,
-            last_sale_amount,
-            estimated_value,
-            property_type,
-            year_built,
-            listing_agent_full_name,
-            listing_agent_email,
-            listing_agent_phone,
-            interest_rate
-          )
-        `)
+        .select('*')
         .eq('account_id', user?.id)
         .order('win_win_score', { ascending: false })
 
       if (!analysisData?.length) return []
 
       // Merge property data into analysis for easy access
-      return analysisData.map((a: any) => ({
-        ...a,
-        // Property fields at top level for easy access
-        address: a.properties?.address || a.address,
-        city: a.properties?.city || a.city,
-        state: a.properties?.state || a.state,
-        zip: a.properties?.zip,
-        bedrooms: a.properties?.bedrooms,
-        bathrooms: a.properties?.bathrooms,
-        living_square_feet: a.properties?.living_square_feet,
-        sqft: a.properties?.sqft || a.properties?.living_square_feet,
-        listing_price: a.properties?.listing_price,
-        days_on_market: a.properties?.days_on_market,
-        property_type: a.properties?.property_type,
-        year_built: a.properties?.year_built,
-        hoa: a.properties?.hoa_fee,
-        price_per_sqft: a.properties?.price_per_sqft,
-        agent_name: a.properties?.listing_agent_full_name || a.properties?.agent_name,
-        agent_email: a.properties?.listing_agent_email || a.properties?.agent_email,
-        agent_phone: a.properties?.listing_agent_phone || a.properties?.agent_phone,
-        brokerage: a.properties?.listing_brokerage_name || a.properties?.brokerage,
-        estimated_value: a.properties?.estimated_value,
-        open_mortgage_balance: a.properties?.open_mortgage_balance,
-        mortgage_rate: a.properties?.interest_rate || a.properties?.recorded_mortgage_interest_rate || a.mortgage_rate,
-      })) as Deal[]
+      return analysisData as Deal[]
     }
   })
 
