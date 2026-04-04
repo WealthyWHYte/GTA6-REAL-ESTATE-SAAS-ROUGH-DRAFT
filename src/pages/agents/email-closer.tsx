@@ -38,13 +38,44 @@ export default function EmailCloserPage() {
 
   const queryClient = useQueryClient()
 
-  // Get property/analysis from underwriter navigation (data is already merged)
+  // Get property/analysis from underwriter navigation, then fetch full property data
   useEffect(() => {
-    if (location.state?.property) {
-      const mergedData = location.state.property
-      setSelectedOffer(mergedData)
-      setSelectedLevel(location.state.selected_level || 1)
+    async function loadData() {
+      if (location.state?.property) {
+        const analysisData = location.state.property
+        setSelectedLevel(location.state.selected_level || 1)
+        setSelectedOffer(analysisData)
+
+        // Fetch full property record to get agent info, beds, baths, etc.
+        if (analysisData.property_id) {
+          const { data: propData } = await supabase
+            .from('properties')
+            .select('bedrooms, bathrooms, living_square_feet, year_built, property_type, days_on_market, estimated_value, open_mortgage_balance, listing_agent_full_name, listing_agent_email, listing_agent_phone, listing_brokerage_name, interest_rate')
+            .eq('id', analysisData.property_id)
+            .single()
+
+          if (propData) {
+            setSelectedOffer({
+              ...analysisData,
+              bedrooms: propData.bedrooms,
+              bathrooms: propData.bathrooms,
+              living_square_feet: propData.living_square_feet,
+              year_built: propData.year_built,
+              property_type: propData.property_type,
+              days_on_market: propData.days_on_market,
+              estimated_value: propData.estimated_value,
+              open_mortgage_balance: propData.open_mortgage_balance,
+              agent_name: propData.listing_agent_full_name,
+              agent_email: propData.listing_agent_email,
+              agent_phone: propData.listing_agent_phone,
+              brokerage: propData.listing_brokerage_name,
+              interest_rate: propData.interest_rate,
+            })
+          }
+        }
+      }
     }
+    loadData()
   }, [location.state])
 
   // Get offers awaiting response
