@@ -133,7 +133,7 @@ export default function UnderwriterPage() {
         .from('property_analysis')
         .select(`
           *,
-          properties:property_id (
+          properties!property_id (
             id,
             address,
             city,
@@ -142,7 +142,6 @@ export default function UnderwriterPage() {
             bedrooms,
             bathrooms,
             living_square_feet,
-            sqft,
             listing_price,
             days_on_market,
             open_mortgage_balance,
