@@ -50,7 +50,7 @@ export default function EmailCloserPage() {
         if (analysisData.property_id) {
           const { data: propData } = await supabase
             .from('properties')
-            .select('bedrooms, bathrooms, living_square_feet, year_built, property_type, days_on_market, estimated_value, open_mortgage_balance, listing_agent_full_name, listing_agent_email, listing_agent_phone, listing_brokerage_name, interest_rate')
+            .select('bedrooms, bathrooms, sqft, year_built, property_type, days_on_market, estimated_value, open_mortgage_balance, listing_agent_full_name, listing_agent_email, listing_agent_phone, interest_rate')
             .eq('id', analysisData.property_id)
             .single()
 
@@ -59,7 +59,7 @@ export default function EmailCloserPage() {
               ...analysisData,
               bedrooms: propData.bedrooms,
               bathrooms: propData.bathrooms,
-              living_square_feet: propData.living_square_feet,
+              sqft: propData.sqft,
               year_built: propData.year_built,
               property_type: propData.property_type,
               days_on_market: propData.days_on_market,
@@ -68,7 +68,7 @@ export default function EmailCloserPage() {
               agent_name: propData.listing_agent_full_name,
               agent_email: propData.listing_agent_email,
               agent_phone: propData.listing_agent_phone,
-              brokerage: propData.listing_brokerage_name,
+              brokerage: propData.listing_agent_full_name ? 'See agent' : null,
               interest_rate: propData.interest_rate,
             })
           }
