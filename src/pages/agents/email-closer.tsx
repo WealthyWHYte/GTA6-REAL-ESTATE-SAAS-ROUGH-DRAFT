@@ -50,7 +50,7 @@ export default function EmailCloserPage() {
         if (analysisData.property_id) {
           const { data: propData } = await supabase
             .from('properties')
-            .select('bedrooms, bathrooms, sqft, year_built, property_type, days_on_market, estimated_value, open_mortgage_balance, listing_agent_full_name, listing_agent_email, listing_agent_phone, interest_rate')
+            .select('bedrooms, bathrooms, sqft, year_built, property_type, days_on_market, estimated_value, open_mortgage_balance, listing_agent_full_name, listing_agent_email, listing_agent_phone, interest_rate, hoa, hoa_fee')
             .eq('id', analysisData.property_id)
             .single()
 
@@ -69,7 +69,9 @@ export default function EmailCloserPage() {
               agent_email: propData.listing_agent_email,
               agent_phone: propData.listing_agent_phone,
               brokerage: propData.listing_agent_full_name ? 'See agent' : null,
-              interest_rate: propData.interest_rate,
+              mortgage_rate: propData.interest_rate || analysisData.mortgage_rate,
+              hoa: propData.hoa,
+              hoa_fee: propData.hoa_fee,
             })
           }
         }
@@ -203,7 +205,7 @@ export default function EmailCloserPage() {
           body: JSON.stringify({
             property_id: selectedOffer.property_id,
             email_type: aiEmailType,
-            seller_name: selectedOffer.properties?.agent_name || selectedOffer.seller_name,
+            seller_name: selectedOffer.agent_name || selectedOffer.seller_name,
             custom_message: customMessage,
             level: selectedLevel,
             offer_price: levelData?.offer_price,
@@ -211,13 +213,31 @@ export default function EmailCloserPage() {
             entry_fee: levelData?.entry_fee,
             monthly_payment: levelData?.monthly,
             property_data: {
-              address: selectedOffer.address || selectedOffer.properties?.address,
-              city: selectedOffer.city || selectedOffer.properties?.city,
-              state: selectedOffer.state || selectedOffer.properties?.state,
-              listing_price: selectedOffer.listing_price || selectedOffer.properties?.listing_price,
-              estimated_value: selectedOffer.estimated_value || selectedOffer.properties?.estimated_value,
-              agent_email: selectedOffer.agent_email || selectedOffer.properties?.agent_email,
-              seller_name: selectedOffer.seller_name || selectedOffer.properties?.seller_name
+              address: selectedOffer.address,
+              city: selectedOffer.city,
+              state: selectedOffer.state,
+              listing_price: selectedOffer.listing_price,
+              estimated_value: selectedOffer.estimated_value,
+              open_mortgage_balance: selectedOffer.open_mortgage_balance,
+              agent_email: selectedOffer.agent_email,
+              agent_name: selectedOffer.agent_name,
+              seller_name: selectedOffer.seller_name,
+              // Pass offer details for email generation
+              level1_offer_price: selectedOffer.level1_offer_price,
+              level1_entry_fee: selectedOffer.level1_entry_fee,
+              level1_monthly_payment: selectedOffer.level1_monthly_payment,
+              level1_seller_carry_rate: selectedOffer.level1_seller_carry_rate,
+              level2_offer_price: selectedOffer.level2_offer_price,
+              level2_entry_fee: selectedOffer.level2_entry_fee,
+              level3_offer_price: selectedOffer.level3_offer_price,
+              level3_entry_fee: selectedOffer.level3_entry_fee,
+              level3_monthly_payment: selectedOffer.level3_monthly_payment,
+              level3_seller_carry_rate: selectedOffer.level3_seller_carry_rate,
+              mortgage_rate: selectedOffer.mortgage_rate,
+              days_on_market: selectedOffer.days_on_market,
+              win_win_score: selectedOffer.win_win_score,
+              strategy: selectedOffer.strategy,
+              ai_analysis: selectedOffer.reasoning
             }
           })
         }

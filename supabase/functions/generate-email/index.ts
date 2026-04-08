@@ -31,13 +31,18 @@ serve(async (req) => {
       throw new Error('Not authenticated')
     }
 
-    const { 
-      property_id, 
-      email_type, 
+    const {
+      property_id,
+      email_type,
       property_data,
       seller_name,
       custom_message,
-      previous_emails 
+      previous_emails,
+      level,
+      offer_price,
+      structure,
+      entry_fee,
+      monthly_payment
     } = await req.json()
 
     console.log(`📧 Email Closer generating ${email_type} email for property ${property_id}`)
@@ -168,6 +173,14 @@ Subject line: Include subject`
         break
 
       case 'offer_presentation':
+        // Use actual offer data passed from frontend
+        const selectedOfferPrice = property_data.level1_offer_price || offer_price || property.listing_price * 0.7
+        const selectedEntryFee = property_data.level1_entry_fee || entry_fee || selectedOfferPrice * 0.1
+        const selectedMonthlyPayment = property_data.level1_monthly_payment || monthly_payment || 0
+        const selectedCarryRate = property_data.level1_seller_carry_rate || 4
+        const mortgageBalance = property_data.open_mortgage_balance || property.open_mortgage_balance || 0
+        const sellerCarryAmount = selectedOfferPrice - mortgageBalance - selectedEntryFee
+
         prompt = `Write a professional offer presentation email to a property seller.
 
 PROPERTY: ${property.address}, ${property.city}, ${property.state}
@@ -176,20 +189,21 @@ LISTING PRICE: $${property.listing_price?.toLocaleString()}
 ${analysisData ? `STRATEGY: ${analysisData.strategy} (Win-Win Score: ${analysisData.win_win_score}/100)
 AI ANALYSIS: ${analysisData.ai_analysis || ''}` : ''}
 
+OFFER DETAILS (use these exact numbers):
+- Purchase Price: $${Math.round(selectedOfferPrice).toLocaleString()}
+- Entry Fee (Cash to Seller at Closing): $${Math.round(selectedEntryFee).toLocaleString()}
+- Existing Loan to Be Taken Over (Subject-To): $${Math.round(mortgageBalance).toLocaleString()}
+- Seller Finance Note (7-Year Balloon): $${Math.round(sellerCarryAmount).toLocaleString()}
+- Monthly Seller Financing Payment: $${Math.round(selectedMonthlyPayment).toLocaleString()}
+- Interest Rate: ${selectedCarryRate}%
+
 ${negotiationContext}
 
-Write in the style of a serious private investor (Antwaun Maxwell). Structure:
+Write in the style of Antwaun Maxwell, a serious private investor. Structure:
 
 1. Opening: "Hi [Name], My name is Antwaun Maxwell — I'm a private investor actively acquiring properties in your area. I'd love to present an offer for your property at [address]."
 
-2. Offer Summary with actual numbers:
-   • Purchase Price: $[LEVEL 1 OFFER AMOUNT]
-   • Cash to Seller at Closing: $[entry fee]
-   • Listing Agent Commission: $[calculated or TBD]
-   • Existing Loan to Be Taken over Subject-To: $[mortgage balance]
-   • Seller Finance (7-Year Balloon): $[amount]
-   • Monthly Seller Financing Note Payment: $[monthly payment]
-   • Total Net to Seller: $[total]
+2. Offer Summary section with the exact numbers above in a clean bulleted format
 
 3. Key Details:
    • Closing in 30 days (or sooner if needed)
@@ -202,9 +216,9 @@ Write in the style of a serious private investor (Antwaun Maxwell). Structure:
 
 6. Add confidentiality notice at bottom.
 
-Tone: Professional, direct, numbers-focused (not salesy)
+Tone: Professional, direct, numbers-focused (not salesy or generic)
 Length: 250-350 words
-Subject line: Offer for [Property Address] - [Listing Price]`
+Subject line: Offer for ${property.address} - $${Math.round(selectedOfferPrice).toLocaleString()}`
         break
 
       case 'closing':
