@@ -93,27 +93,34 @@ ALWAYS mention: "We beat bank terms on every metric!"
 
     switch (email_type) {
       case 'initial_outreach':
-        prompt = `Write an initial outreach email to a property seller.
+        prompt = `Write a professional initial outreach email to a property seller.
 
 PROPERTY: ${property.address}, ${property.city}, ${property.state}
 SELLER: ${seller_name || 'Property Owner'}
-LISTING PRICE: ${property.listing_price?.toLocaleString()}
+LISTING PRICE: $${property.listing_price?.toLocaleString()}
 DAYS ON MARKET: ${property.days_on_market || 'Unknown'}
-${analysisData ? `STRATEGY: ${analysisData.strategy} (Score: ${analysisData.win_win_score}/100)` : ''}
+${analysisData ? `STRATEGY: ${analysisData.strategy} (Win-Win Score: ${analysisData.win_win_score}/100)
+AI ANALYSIS: ${analysisData.ai_analysis || ''}` : ''}
 
 ${negotiationContext}
 
-Write a warm, personalized email that:
-1. Shows you've researched their property
-2. Acknowledges they may want a quick, easy sale
-3. Positions us as problem-solvers, not just buyers
-4. Offers a no-obligation conversation
-5. MENTIONS: "We offer better terms than banks - lower down payment, lower rates, longer terms"
-6. Ends with a clear call-to-action
+Write in the style of Antwaun Maxwell, a private investor. Structure:
 
-Tone: Professional but friendly, empathetic
-Length: 150-200 words
-Subject line: Include an engaging subject line`
+1. Opening: "Hi [Name], My name is Antwaun Maxwell — I'm a private investor actively acquiring properties in your area. I'd love to make an offer on your property at [address]."
+
+2. Explain the offer approach: Subject-To + Seller Finance hybrid that benefits both parties
+
+3. Compare to banks: "Banks want 20-30% down, we offer 0-10%. Banks charge 7-9% interest, we offer 0-5%. Banks require 30-year terms, we can go 40-50 years."
+
+4. Fast closing: 14-30 days, EMD of 1% with title company
+
+5. Call to action: Ask for mortgage statement and any counter terms
+
+6. Sign-off with phone (3059683470) and confidentiality notice
+
+Tone: Professional, direct, confident (not salesy or generic)
+Length: 200-300 words
+Subject line: Offer for [Property Address]`
         break
 
       case 'follow_up':
@@ -161,26 +168,43 @@ Subject line: Include subject`
         break
 
       case 'offer_presentation':
-        prompt = `Write an email presenting our offer to purchase their property.
+        prompt = `Write a professional offer presentation email to a property seller.
 
 PROPERTY: ${property.address}, ${property.city}, ${property.state}
 SELLER: ${seller_name || 'Property Owner'}
-LISTING PRICE: ${property.listing_price?.toLocaleString()}
-${analysisData ? `STRATEGY: ${analysisData.strategy} (Score: ${analysisData.win_win_score}/100)` : ''}
+LISTING PRICE: $${property.listing_price?.toLocaleString()}
+${analysisData ? `STRATEGY: ${analysisData.strategy} (Win-Win Score: ${analysisData.win_win_score}/100)
+AI ANALYSIS: ${analysisData.ai_analysis || ''}` : ''}
 
 ${negotiationContext}
 
-Present the offer professionally:
-1. Lead with LEVEL 1 OFFER (70% + terms) - THIS IS BEST!
-2. Explain the deal structure (Subject-To or Seller Finance)
-3. COMPARE TO BANKS: "Banks want 20-30% down, we offer 0-10%"
-4. Highlight fast closing (14-30 days vs 30-45 days)
-5. Show this solves their problems
-6. Next steps clearly stated
+Write in the style of a serious private investor (Antwaun Maxwell). Structure:
 
-Tone: Confident, solution-focused
-Length: 200-250 words
-Subject line: Include subject`
+1. Opening: "Hi [Name], My name is Antwaun Maxwell — I'm a private investor actively acquiring properties in your area. I'd love to present an offer for your property at [address]."
+
+2. Offer Summary with actual numbers:
+   • Purchase Price: $[LEVEL 1 OFFER AMOUNT]
+   • Cash to Seller at Closing: $[entry fee]
+   • Listing Agent Commission: $[calculated or TBD]
+   • Existing Loan to Be Taken over Subject-To: $[mortgage balance]
+   • Seller Finance (7-Year Balloon): $[amount]
+   • Monthly Seller Financing Note Payment: $[monthly payment]
+   • Total Net to Seller: $[total]
+
+3. Key Details:
+   • Closing in 30 days (or sooner if needed)
+   • EMD of 1% placed with title company
+   • Flexible terms to ensure a smooth and efficient closing
+
+4. Call to action: "If the terms look good, please share a copy of the most recent mortgage statement along with any counter terms you'd like us to consider. Once terms are confirmed, we'll send over the formal contract."
+
+5. Sign-off: "Happy to answer any questions or discuss further. Best regards, Antwaun Maxwell Phone: 3059683470"
+
+6. Add confidentiality notice at bottom.
+
+Tone: Professional, direct, numbers-focused (not salesy)
+Length: 250-350 words
+Subject line: Offer for [Property Address] - [Listing Price]`
         break
 
       case 'closing':

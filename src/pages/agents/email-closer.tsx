@@ -488,12 +488,9 @@ export default function EmailCloserPage() {
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Price/Sqft</p>
-                          <p className="text-sm font-medium">${selectedOffer.price_per_sqft ? selectedOffer.price_per_sqft.toLocaleString() : 'N/A'}</p>
+                          <p className="text-sm font-medium">{selectedOffer.sqft && selectedOffer.level3_offer_price ? '$' + Math.round(selectedOffer.level3_offer_price / selectedOffer.sqft) + '/sqft' : 'N/A'}</p>
                         </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">HOA</p>
-                          <p className="text-sm font-medium">${selectedOffer.hoa || selectedOffer.hoa_fee || 'N/A'}/mo</p>
-                        </div>
+
                       </div>
 
                       {/* Financial Details */}
@@ -512,7 +509,7 @@ export default function EmailCloserPage() {
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Equity</p>
-                          <p className="text-sm font-medium">{selectedOffer.equity_percent ? `${Math.round(selectedOffer.equity_percent)}%` : 'N/A'}</p>
+                          <p className="text-sm font-medium">{selectedOffer.estimated_value && selectedOffer.open_mortgage_balance ? `${Math.round((1 - Number(selectedOffer.open_mortgage_balance) / Number(selectedOffer.estimated_value)) * 100)}%` : 'N/A'}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Mortgage Rate</p>
@@ -621,7 +618,7 @@ export default function EmailCloserPage() {
                             </div>
                             <div>
                               <p className="text-xs text-muted-foreground">Interest Rate</p>
-                              <p className="text-lg font-bold">{selectedOffer.level1_interest_rate || 'N/A'}%</p>
+                              <p className="text-lg font-bold">{selectedOffer.level1_seller_carry_rate || selectedOffer.mortgage_rate || 'N/A'}%</p>
                             </div>
                           </div>
                           <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm">
