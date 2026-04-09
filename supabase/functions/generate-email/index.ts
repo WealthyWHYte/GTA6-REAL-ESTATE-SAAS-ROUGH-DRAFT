@@ -34,6 +34,7 @@ serve(async (req) => {
     const {
       property_id,
       email_type,
+      email_mode,
       property_data,
       seller_name,
       custom_message,
@@ -45,7 +46,7 @@ serve(async (req) => {
       monthly_payment
     } = await req.json()
 
-    console.log(`📧 Email Closer generating ${email_type} email for property ${property_id}`)
+    console.log(`📧 Email Closer generating ${email_type} email for property ${property_id} (mode: ${email_mode || 'seller'})`)
 
     // Get property if not provided
     let property = property_data
@@ -62,8 +63,10 @@ serve(async (req) => {
       throw new Error('Property data required')
     }
 
-    // Build email generation prompt based on type
-    let systemPrompt = `You are an expert real estate negotiator writing emails to motivated sellers. Your emails are friendly, professional, and focus on solving the seller's problems. ALWAYS include bank comparison in your pitch.`
+    // Build email generation prompt based on type and mode
+    let systemPrompt = email_mode === 'buyer'
+      ? `You are an experienced real estate investor sharing off-market deals with other investors. Your emails are exciting but professional, focused on the numbers and ROI. Use clean formatting with emojis for section headers.`
+      : `You are an expert real estate negotiator writing emails to motivated sellers. Your emails are friendly, professional, and focus on solving the seller's problems. ALWAYS include bank comparison in your pitch.`
     
     // Get property analysis for negotiation level
     let analysisData = null
@@ -238,6 +241,64 @@ Write a closing email that:
 Tone: Professional, reassuring, excited
 Length: 100-150 words
 Subject line: Include subject`
+        break
+
+      case 'buyer_dispo':
+        // Buyer/Investor email - dispo style
+        const dispoOfferPrice = property_data.level1_offer_price || offer_price || property.listing_price * 0.7
+        const dispoEntryFee = property_data.level1_entry_fee || entry_fee || dispoOfferPrice * 0.1
+        const dispoMonthlyPayment = property_data.level1_monthly_payment || monthly_payment || 0
+        const dispoCarryRate = property_data.level1_seller_carry_rate || 4
+        const dispoMortgageBalance = property_data.open_mortgage_balance || property.open_mortgage_balance || 0
+
+        // Calculate cash flow estimates for buyers
+        const estimatedRent = property.listing_price * 0.008 // Rough 0.8% rule
+        const estimatedPITI = dispoMonthlyPayment + (property.listing_price * 0.01 / 12) // Payment + est. tax/ins
+        const estimatedCashFlow = estimatedRent - estimatedPITI
+        const cashOnCash = dispoEntryFee > 0 ? ((estimatedCashFlow * 12) / dispoEntryFee * 100) : 0
+
+        prompt = `Write a deal dispo email to a real estate investor/buyer.
+
+PROPERTY: ${property.address}, ${property.city}, ${property.state}
+PROPERTY DETAILS:
+- Bedrooms: ${property.bedrooms || 'N/A'}
+- Bathrooms: ${property.bathrooms || 'N/A'}
+- Square Feet: ${property.sqft || 'N/A'}
+- Year Built: ${property.year_built || 'N/A'}
+- Listing Price: $${property.listing_price?.toLocaleString()}
+
+DEAL HIGHLIGHTS (use these exact numbers):
+- Entry Fee (Down): $${Math.round(dispoEntryFee).toLocaleString()}
+- Interest Rate: ${dispoCarryRate}% (Subject-To)
+- Estimated Monthly Payment (PITI): $${Math.round(estimatedPITI).toLocaleString()}/mo
+- Estimated Market Rent: $${Math.round(estimatedRent).toLocaleString()}/mo (Long-Term)
+- Mid-Term Rent Potential: $${Math.round(estimatedRent * 1.5).toLocaleString()}+/mo
+- Estimated Monthly Cash Flow: $${Math.round(estimatedCashFlow)}+/mo
+- Estimated Cash-on-Cash ROI: ${Math.round(cashOnCash)}%
+
+${analysisData ? `
+STRATEGY: ${analysisData.strategy}
+AI ANALYSIS: ${analysisData.ai_analysis || ''}` : ''}
+
+Write in a clean, investor-friendly format. Structure:
+
+1. Subject line with key numbers (e.g., "🏠 [City] Sub-To: $${Math.round(dispoEntryFee/1000)}K Entry | $${Math.round(estimatedCashFlow)}/mo Cash Flow | ${Math.round(cashOnCash)}% ROI")
+
+2. Opening: "I've got a rare off-market [City] opportunity under contract with built-in equity and creative financing already in place."
+
+3. Property summary in bullet format with emojis
+
+4. Deal Highlights section with all the numbers above
+
+5. "Perfect for:" section - suggest strategies (mid-term rental, long-term buy & hold, Airbnb, etc.)
+
+6. Call to action: "Pics, comps, financials available upon request. Text '[CITY]' to lock in details or make an offer."
+
+7. Sign-off: "To abundance, [Your Name] [Phone] [Company]"
+
+Tone: Excited but professional, investor-to-investor, numbers-focused
+Length: 150-250 words
+Format: Clean bullets, emoji section headers, easy to scan`
         break
 
       default:

@@ -35,6 +35,7 @@ export default function EmailCloserPage() {
   const [sendSuccess, setSendSuccess] = useState(false)
   const [expandedLevel, setExpandedLevel] = useState<number | null>(1)
   const [showFullPropertyDetails, setShowFullPropertyDetails] = useState(false)
+  const [emailMode, setEmailMode] = useState<'seller' | 'buyer'>('seller') // Toggle between seller outreach and buyer dispo
 
   const queryClient = useQueryClient()
 
@@ -258,7 +259,8 @@ export default function EmailCloserPage() {
         'initial_outreach': 'initial_outreach'
       }
 
-      const aiEmailType = emailTypeMap[emailType] || 'offer_presentation'
+      // Determine email type based on mode
+      const aiEmailType = emailMode === 'buyer' ? 'buyer_dispo' : (emailTypeMap[emailType] || 'offer_presentation')
 
       const { data: { session } } = await supabase.auth.getSession()
 
@@ -273,6 +275,7 @@ export default function EmailCloserPage() {
           body: JSON.stringify({
             property_id: selectedOffer.property_id,
             email_type: aiEmailType,
+            email_mode: emailMode, // 'seller' or 'buyer'
             seller_name: selectedOffer.agent_name || selectedOffer.seller_name,
             custom_message: customMessage,
             level: selectedLevel,
@@ -290,6 +293,11 @@ export default function EmailCloserPage() {
               agent_email: selectedOffer.agent_email,
               agent_name: selectedOffer.agent_name,
               seller_name: selectedOffer.seller_name,
+              // Property details for buyer emails
+              bedrooms: selectedOffer.bedrooms,
+              bathrooms: selectedOffer.bathrooms,
+              sqft: selectedOffer.sqft,
+              year_built: selectedOffer.year_built,
               // Pass offer details for email generation
               level1_offer_price: selectedOffer.level1_offer_price,
               level1_entry_fee: selectedOffer.level1_entry_fee,
@@ -866,9 +874,28 @@ export default function EmailCloserPage() {
             {selectedOffer && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Send className="w-5 h-5" />
-                    AI Email Generator - {selectedOffer.properties?.agent_name || 'Agent'}
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Send className="w-5 h-5" />
+                      AI Email Generator - {emailMode === 'seller' ? (selectedOffer.agent_name || 'Seller/Agent') : 'Buyer/Investor'}
+                    </div>
+                    {/* Email Mode Toggle */}
+                    <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
+                      <Button
+                        variant={emailMode === 'seller' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setEmailMode('seller')}
+                      >
+                        📩 To Seller
+                      </Button>
+                      <Button
+                        variant={emailMode === 'buyer' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setEmailMode('buyer')}
+                      >
+                        🏠 To Buyer
+                      </Button>
+                    </div>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
