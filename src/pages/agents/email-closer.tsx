@@ -559,7 +559,7 @@ export default function EmailCloserPage() {
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Estimated Equity</p>
-                          <p className="text-sm font-medium">${(selectedOffer.estimated_equity || 0).toLocaleString()}</p>
+                          <p className="text-sm font-medium">${selectedOffer.estimated_value && selectedOffer.open_mortgage_balance ? (Number(selectedOffer.estimated_value) - Number(selectedOffer.open_mortgage_balance)).toLocaleString() : '0'}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Expected ROI</p>
@@ -567,7 +567,7 @@ export default function EmailCloserPage() {
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Max Offer Price</p>
-                          <p className="text-sm font-medium">${(selectedOffer.max_offer_price || 0).toLocaleString()}</p>
+                          <p className="text-sm font-medium">${(Number(selectedOffer.level3_offer_price) || 0).toLocaleString()}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Recommendation</p>
@@ -728,7 +728,7 @@ export default function EmailCloserPage() {
                             </div>
                             <div>
                               <p className="text-xs text-muted-foreground">Interest Rate</p>
-                              <p className="text-lg font-bold">{selectedOffer.level3_interest_rate || 'N/A'}%</p>
+                              <p className="text-lg font-bold">{selectedOffer.level3_seller_carry_rate || selectedOffer.mortgage_rate || 'N/A'}%</p>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mt-3">

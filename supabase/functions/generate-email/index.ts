@@ -221,7 +221,7 @@ Write in the style of Antwaun Maxwell, a serious private investor. Structure:
 
 4. Call to action: "If the terms look good, please share a copy of the most recent mortgage statement along with any counter terms you'd like us to consider. Once terms are confirmed, we'll send over the formal contract."
 
-5. Sign-off: "Happy to answer any questions or discuss further. Best regards, Antwaun Maxwell Phone: 3059683470"
+5. Sign-off: "Happy to answer any questions or discuss further. Best regards, Antwaun Maxwell" (no phone number - email communication only)
 
 6. Add confidentiality notice at bottom.
 
