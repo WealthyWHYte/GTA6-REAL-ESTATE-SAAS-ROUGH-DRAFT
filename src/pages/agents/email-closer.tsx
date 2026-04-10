@@ -39,7 +39,9 @@ export default function EmailCloserPage() {
 
   const queryClient = useQueryClient()
 
-  // Get property/analysis from underwriter navigation, then fetch full property data
+  // Get property/analysis from underwriter navigation
+  // NOTE: property_analysis already contains denormalized property data (beds, baths, sqft, agent info, etc.)
+  // We don't need to fetch from properties table since the data is already in property_analysis
   useEffect(() => {
     async function loadData() {
       console.log('📧 Email Closer: location.state =', location.state)
@@ -49,73 +51,14 @@ export default function EmailCloserPage() {
         console.log('📊 Analysis data received:', {
           property_id: analysisData.property_id,
           address: analysisData.address,
-          win_win_score: analysisData.win_win_score
+          win_win_score: analysisData.win_win_score,
+          agent_name: analysisData.agent_name,
+          agent_email: analysisData.agent_email
         })
 
         setSelectedLevel(location.state.selected_level || 1)
+        // property_analysis already has all the data we need - just use it directly
         setSelectedOffer(analysisData)
-
-        // Fetch full property record to get agent info, beds, baths, etc.
-        if (analysisData.property_id) {
-          console.log('🔍 Fetching property data for ID:', analysisData.property_id)
-          console.log('📋 Analysis data:', {
-            address: analysisData.address,
-            property_id: analysisData.property_id,
-            win_win_score: analysisData.win_win_score
-          })
-
-          const { data: propData, error: propError } = await supabase
-            .from('properties')
-            .select('bedrooms, bathrooms, sqft, year_built, property_type, days_on_market, estimated_value, open_mortgage_balance, listing_agent_full_name, listing_agent_email, listing_agent_phone, interest_rate, hoa, hoa_fee')
-            .eq('id', analysisData.property_id)
-            .single()
-
-          if (propError) {
-            console.error('❌ Property fetch error:', propError)
-            // Try fallback: search by address
-            console.log('🔄 Trying address-based fallback lookup...')
-            const { data: addrPropData } = await supabase
-              .from('properties')
-              .select('bedrooms, bathrooms, sqft, year_built, property_type, days_on_market, estimated_value, open_mortgage_balance, listing_agent_full_name, listing_agent_email, listing_agent_phone, interest_rate, hoa, hoa_fee')
-              .ilike('address', `%${analysisData.address}%`)
-              .single()
-
-            if (addrPropData) {
-              console.log('✅ Address fallback succeeded:', { agent_name: addrPropData.listing_agent_full_name })
-              propData = addrPropData
-            }
-          }
-
-          if (propData) {
-            console.log('✅ Property data fetched:', {
-              agent_name: propData.listing_agent_full_name,
-              agent_email: propData.listing_agent_email,
-              bedrooms: propData.bedrooms,
-              bathrooms: propData.bathrooms,
-              sqft: propData.sqft
-            })
-            setSelectedOffer({
-              ...analysisData,
-              bedrooms: propData.bedrooms,
-              bathrooms: propData.bathrooms,
-              sqft: propData.sqft,
-              year_built: propData.year_built,
-              property_type: propData.property_type,
-              days_on_market: propData.days_on_market,
-              estimated_value: propData.estimated_value,
-              open_mortgage_balance: propData.open_mortgage_balance,
-              agent_name: propData.listing_agent_full_name,
-              agent_email: propData.listing_agent_email,
-              agent_phone: propData.listing_agent_phone,
-              brokerage: propData.listing_agent_full_name ? 'See agent' : null,
-              mortgage_rate: propData.interest_rate || analysisData.mortgage_rate,
-              hoa: propData.hoa,
-              hoa_fee: propData.hoa_fee,
-            })
-          } else {
-            console.warn('⚠️ No property data found for ID:', analysisData.property_id, 'address:', analysisData.address)
-          }
-        }
       } else {
         console.warn('⚠️ No location.state.property found - trying fallback fetch')
         // Fallback: fetch property_analysis directly if navigation state was lost
@@ -132,36 +75,7 @@ export default function EmailCloserPage() {
             console.log('🔄 Fallback: using most recent property_analysis')
             const analysisData = fallbackData[0]
             setSelectedLevel(1)
-
-            // Fetch property data
-            if (analysisData.property_id) {
-              const { data: propData } = await supabase
-                .from('properties')
-                .select('bedrooms, bathrooms, sqft, year_built, property_type, days_on_market, estimated_value, open_mortgage_balance, listing_agent_full_name, listing_agent_email, listing_agent_phone, interest_rate, hoa, hoa_fee')
-                .eq('id', analysisData.property_id)
-                .single()
-
-              if (propData) {
-                setSelectedOffer({
-                  ...analysisData,
-                  bedrooms: propData.bedrooms,
-                  bathrooms: propData.bathrooms,
-                  sqft: propData.sqft,
-                  year_built: propData.year_built,
-                  property_type: propData.property_type,
-                  days_on_market: propData.days_on_market,
-                  estimated_value: propData.estimated_value,
-                  open_mortgage_balance: propData.open_mortgage_balance,
-                  agent_name: propData.listing_agent_full_name,
-                  agent_email: propData.listing_agent_email,
-                  agent_phone: propData.listing_agent_phone,
-                  brokerage: propData.listing_agent_full_name ? 'See agent' : null,
-                  mortgage_rate: propData.interest_rate || analysisData.mortgage_rate,
-                  hoa: propData.hoa,
-                  hoa_fee: propData.hoa_fee,
-                })
-              }
-            }
+            setSelectedOffer(analysisData)
           }
         }
       }
