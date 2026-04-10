@@ -221,6 +221,7 @@ Write in the style of Antwaun Maxwell, a serious private investor. Structure:
 
 Tone: Professional, direct, numbers-focused (not salesy or generic)
 Length: 250-350 words
+FORMAT: Plain text only. No markdown. No asterisks. No bold. Use plain dashes for bullets.
 Subject line: Offer for ${property.address} - $${Math.round(selectedOfferPrice).toLocaleString()}`
         break
 
