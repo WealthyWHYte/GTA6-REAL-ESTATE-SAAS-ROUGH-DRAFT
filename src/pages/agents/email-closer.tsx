@@ -58,6 +58,12 @@ export default function EmailCloserPage() {
         // Fetch full property record to get agent info, beds, baths, etc.
         if (analysisData.property_id) {
           console.log('🔍 Fetching property data for ID:', analysisData.property_id)
+          console.log('📋 Analysis data:', {
+            address: analysisData.address,
+            property_id: analysisData.property_id,
+            win_win_score: analysisData.win_win_score
+          })
+
           const { data: propData, error: propError } = await supabase
             .from('properties')
             .select('bedrooms, bathrooms, sqft, year_built, property_type, days_on_market, estimated_value, open_mortgage_balance, listing_agent_full_name, listing_agent_email, listing_agent_phone, interest_rate, hoa, hoa_fee')
@@ -66,7 +72,21 @@ export default function EmailCloserPage() {
 
           if (propError) {
             console.error('❌ Property fetch error:', propError)
-          } else if (propData) {
+            // Try fallback: search by address
+            console.log('🔄 Trying address-based fallback lookup...')
+            const { data: addrPropData } = await supabase
+              .from('properties')
+              .select('bedrooms, bathrooms, sqft, year_built, property_type, days_on_market, estimated_value, open_mortgage_balance, listing_agent_full_name, listing_agent_email, listing_agent_phone, interest_rate, hoa, hoa_fee')
+              .ilike('address', `%${analysisData.address}%`)
+              .single()
+
+            if (addrPropData) {
+              console.log('✅ Address fallback succeeded:', { agent_name: addrPropData.listing_agent_full_name })
+              propData = addrPropData
+            }
+          }
+
+          if (propData) {
             console.log('✅ Property data fetched:', {
               agent_name: propData.listing_agent_full_name,
               agent_email: propData.listing_agent_email,
@@ -93,7 +113,7 @@ export default function EmailCloserPage() {
               hoa_fee: propData.hoa_fee,
             })
           } else {
-            console.warn('⚠️ No property data found for ID:', analysisData.property_id)
+            console.warn('⚠️ No property data found for ID:', analysisData.property_id, 'address:', analysisData.address)
           }
         }
       } else {
