@@ -194,7 +194,13 @@ AI ANALYSIS: ${analysisData.ai_analysis || ''}` : ''}
 
 OFFER DETAILS (use these exact numbers):
 - Purchase Price: $${Math.round(selectedOfferPrice).toLocaleString()}
-- Entry Fee (Cash to Seller at Closing): $${Math.round(selectedEntryFee).toLocaleString()}
+- Entry Fee Breakdown (Total: $${Math.round(selectedEntryFee).toLocaleString()}):
+    - Cash to Seller (3% or less): $${Math.round(selectedEntryFee * 0.35).toLocaleString()}
+    - Listing Agent Commission (3% or less): $${Math.round(Number(property_data.level1_offer_price || 0) * 0.03).toLocaleString()}
+    - Arrears / Liens / Issues: $${Math.round(selectedEntryFee * 0.10).toLocaleString()}
+    - Cost of Acquisition: $${Math.round(selectedEntryFee * 0.10).toLocaleString()}
+    - Close Escrow: $${Math.round(selectedEntryFee * 0.10).toLocaleString()}
+    - Renovation / Maintenance / Marketing: $${Math.round(selectedEntryFee * 0.35).toLocaleString()}
 - Existing Loan to Be Taken Over (Subject-To): $${Math.round(mortgageBalance).toLocaleString()}
 - Seller Finance Note (7-Year Balloon): $${Math.round(sellerCarryAmount).toLocaleString()}
 - Monthly Seller Financing Payment: $${Math.round(selectedMonthlyPayment).toLocaleString()}
