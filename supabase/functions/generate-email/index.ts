@@ -236,7 +236,7 @@ Write in the style of Antwaun Maxwell, a serious private investor. Structure:
 Tone: Professional, direct, numbers-focused (not salesy or generic)
 Length: 250-350 words
 FORMAT: Plain text only. No markdown. No asterisks. No bold. Use plain dashes for bullets.
-Subject line: Offer for ${property.address} - $${Math.round(selectedOfferPrice).toLocaleString()}`
+Subject line (output ONLY the subject text, no label prefix): Offer for ${property.address} - $${Math.round(selectedOfferPrice).toLocaleString()}`
         break
 
       case 'closing':
@@ -338,9 +338,9 @@ Format: Clean bullets, emoji section headers, easy to scan`
     let body = content
 
     // Try to extract subject line
-    const subjectMatch = content.match(/Subject:?\s*(.+?)[\n\r]/i)
+    const subjectMatch = content.match(/Subject(?:\s*line)?:?\s*(.+?)[\n\r]/i)
     if (subjectMatch) {
-      subject = subjectMatch[1].trim()
+      subject = subjectMatch[1].trim().replace(/^["\']+|["\']+$/g, '')
       body = content.replace(subjectMatch[0], '').trim()
     }
 
