@@ -338,17 +338,21 @@ Format: Clean bullets, emoji section headers, easy to scan`
     let subject = 'Re: Your Property'
     let body = content
 
-    // AI outputs subject as first line, then blank line, then body
-    const lines = content.split('\n')
-    const firstLine = lines[0].trim()
-    // If first line looks like a subject (starts with Offer, Re:, etc) use it
-    const subjectLabelMatch = content.match(/Subject(?:\s*line)?:?\s*(.+?)[\n\r]/i)
+    // Extract subject - AI may output "Subject: ..." as first line or bare subject text
+    const subjectLabelMatch = content.match(/^Subject(?:\s*line)?:\s*(.+)/im)
     if (subjectLabelMatch) {
       subject = subjectLabelMatch[1].trim().replace(/^["\']+|["\']+$/g, '')
-      body = content.replace(subjectLabelMatch[0], '').trim()
-    } else if (firstLine && !firstLine.startsWith('Hi ') && firstLine.length < 100) {
-      subject = firstLine.replace(/^["\']+|["\']+$/g, '')
-      body = lines.slice(1).join('\n').trim()
+      // Remove just the subject line, keep everything else as body
+      const subjectLineEnd = content.indexOf(subjectLabelMatch[0]) + subjectLabelMatch[0].length
+      body = content.substring(subjectLineEnd).trim()
+    } else {
+      // No subject label - first non-empty line before "Hi " is the subject
+      const lines = content.split('\n')
+      const hiIndex = lines.findIndex(l => l.trim().startsWith('Hi '))
+      if (hiIndex > 0) {
+        subject = lines.slice(0, hiIndex).join(' ').trim().replace(/^["\']+|["\']+$/g, '')
+        body = lines.slice(hiIndex).join('\n').trim()
+      }
     }
 
     // Save to communications table - using ACTUAL DB schema
