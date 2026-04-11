@@ -385,7 +385,7 @@ Format: Clean bullets, emoji section headers, easy to scan`
     return new Response(
       JSON.stringify({
         success: true,
-        email: savedEmail || { subject, body },
+        email: { subject, body },
         provider: aiResult.provider,
         message: 'Email generated successfully'
       }),
