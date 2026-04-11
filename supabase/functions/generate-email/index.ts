@@ -334,14 +334,21 @@ Format: Clean bullets, emoji section headers, easy to scan`
 
     // Parse subject and body from AI response
     const content = aiResult.content.trim()
+    console.log('RAW AI OUTPUT (first 200 chars):', content.substring(0, 200))
     let subject = 'Re: Your Property'
     let body = content
 
-    // Try to extract subject line
-    const subjectMatch = content.match(/Subject(?:\s*line)?:?\s*(.+?)[\n\r]/i)
-    if (subjectMatch) {
-      subject = subjectMatch[1].trim().replace(/^["\']+|["\']+$/g, '')
-      body = content.replace(subjectMatch[0], '').trim()
+    // AI outputs subject as first line, then blank line, then body
+    const lines = content.split('\n')
+    const firstLine = lines[0].trim()
+    // If first line looks like a subject (starts with Offer, Re:, etc) use it
+    const subjectLabelMatch = content.match(/Subject(?:\s*line)?:?\s*(.+?)[\n\r]/i)
+    if (subjectLabelMatch) {
+      subject = subjectLabelMatch[1].trim().replace(/^["\']+|["\']+$/g, '')
+      body = content.replace(subjectLabelMatch[0], '').trim()
+    } else if (firstLine && !firstLine.startsWith('Hi ') && firstLine.length < 100) {
+      subject = firstLine.replace(/^["\']+|["\']+$/g, '')
+      body = lines.slice(1).join('\n').trim()
     }
 
     // Save to communications table - using ACTUAL DB schema
@@ -349,7 +356,8 @@ Format: Clean bullets, emoji section headers, easy to scan`
       .from('communications')
       .insert({
         account_id: user.id,
-        property_id: property_id,
+        // property_id intentionally omitted - FK constraint requires it exist in properties table
+        // property_id: property_id,
         to_email: property.agent_email || property.seller_email || 'unknown@example.com',
         to_name: seller_name || property.seller_name || 'Property Owner',
         subject,
