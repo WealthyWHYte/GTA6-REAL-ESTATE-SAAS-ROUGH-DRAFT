@@ -177,10 +177,18 @@ Subject line: Include subject`
 
       case 'offer_presentation':
         // Use actual offer data passed from frontend
-        const selectedOfferPrice = property_data.level1_offer_price || offer_price || property.listing_price * 0.7
-        const selectedEntryFee = property_data.level1_entry_fee || entry_fee || selectedOfferPrice * 0.1
-        const selectedMonthlyPayment = property_data.level1_monthly_payment || monthly_payment || 0
-        const selectedCarryRate = property_data.level1_seller_carry_rate || 4
+        // Use the selected level's data
+        const lvl = level || 1
+        const selectedOfferPrice = lvl === 3 ? (property_data.level3_offer_price || offer_price) :
+                                   lvl === 2 ? (property_data.level2_offer_price || offer_price) :
+                                   (property_data.level1_offer_price || offer_price || property.listing_price * 0.7)
+        const selectedEntryFee = lvl === 3 ? (property_data.level3_entry_fee || entry_fee) :
+                                 lvl === 2 ? (property_data.level2_entry_fee || entry_fee) :
+                                 (property_data.level1_entry_fee || entry_fee || selectedOfferPrice * 0.1)
+        const selectedMonthlyPayment = lvl === 3 ? (property_data.level3_monthly_payment || monthly_payment) :
+                                       (property_data.level1_monthly_payment || monthly_payment || 0)
+        const selectedCarryRate = lvl === 3 ? (property_data.level3_seller_carry_rate || 4) :
+                                  (property_data.level1_seller_carry_rate || 4)
         const mortgageBalance = property_data.open_mortgage_balance || property.open_mortgage_balance || 0
         const sellerCarryAmount = selectedOfferPrice - mortgageBalance - selectedEntryFee
 
