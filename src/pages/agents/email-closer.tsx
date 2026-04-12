@@ -290,22 +290,33 @@ export default function EmailCloserPage() {
       if (commError) throw commError
 
       // Send via Gmail (if connected)
+      const recipientEmail = selectedOffer.agent_email || selectedOffer.properties?.agent_email
+      const recipientName = selectedOffer.agent_name || selectedOffer.properties?.agent_name
+
+      if (!recipientEmail) {
+        console.error('❌ Missing recipient_email:', { selectedOffer })
+        throw new Error('Recipient email is missing - cannot send')
+      }
+
+      console.log('📤 Sending email:', { recipientEmail, recipientName, subject: emailSubject })
+
       try {
         const { data, error } = await supabase.functions.invoke('send-email', {
           body: {
             property_id: selectedOffer.property_id,
-            recipient_email: selectedOffer.agent_email || selectedOffer.properties?.agent_email,
-            recipient_name: selectedOffer.agent_name || selectedOffer.properties?.agent_name,
+            recipient_email: recipientEmail,
+            recipient_name: recipientName,
             subject: emailSubject,
             body: emailBody,
             level: selectedLevel
           }
         })
+        console.log('📬 Send-email response:', { data, error })
         if (error) throw error
         return data
-      } catch (sendErr) {
-        console.log('Gmail send failed, but communication saved:', sendErr)
-        return { saved: true }
+      } catch (sendErr: any) {
+        console.error('❌ Gmail send failed:', sendErr?.message || sendErr)
+        throw sendErr // Re-throw so user sees the error
       }
     },
     onSuccess: () => {
@@ -319,6 +330,10 @@ export default function EmailCloserPage() {
         setEmailSubject('')
         setEmailBody('')
       }, 3000)
+    },
+    onError: (err: any) => {
+      console.error('❌ Send mutation error:', err)
+      alert('Failed to send email: ' + (err?.message || 'Unknown error'))
     }
   })
 

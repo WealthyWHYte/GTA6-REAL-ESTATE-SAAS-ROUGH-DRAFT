@@ -203,12 +203,12 @@ AI ANALYSIS: ${analysisData.ai_analysis || ''}` : ''}
 OFFER DETAILS (use these exact numbers):
 - Purchase Price: $${Math.round(selectedOfferPrice).toLocaleString()}
 - Entry Fee Breakdown (Total: $${Math.round(selectedEntryFee).toLocaleString()}):
-    - Cash to Seller (3% or less): $${Math.round(selectedEntryFee * 0.35).toLocaleString()}
-    - Listing Agent Commission (3% or less): $${Math.round(Number(property_data.level1_offer_price || 0) * 0.03).toLocaleString()}
+    - Cash to Seller (3% or less): $${Math.round(selectedEntryFee * 0.30).toLocaleString()}
+    - Listing Agent Commission (3% or less): $${Math.round(selectedEntryFee * 0.15).toLocaleString()}
     - Arrears / Liens / Issues: $${Math.round(selectedEntryFee * 0.10).toLocaleString()}
-    - Cost of Acquisition: $${Math.round(selectedEntryFee * 0.10).toLocaleString()}
+    - Cost of Acquisition: $${Math.round(selectedEntryFee * 0.15).toLocaleString()}
     - Close Escrow: $${Math.round(selectedEntryFee * 0.10).toLocaleString()}
-    - Renovation / Maintenance / Marketing: $${Math.round(selectedEntryFee * 0.35).toLocaleString()}
+    - Renovation / Maintenance / Marketing: $${Math.round(selectedEntryFee * 0.20).toLocaleString()}
 - Existing Loan to Be Taken Over (Subject-To): $${Math.round(mortgageBalance).toLocaleString()}
 - Seller Finance Note (7-Year Balloon): $${Math.round(sellerCarryAmount).toLocaleString()}
 - Monthly Seller Financing Payment: $${Math.round(selectedMonthlyPayment).toLocaleString()}
@@ -235,7 +235,7 @@ Write in the style of Antwaun Maxwell, a serious private investor. Structure:
 
 Tone: Professional, direct, numbers-focused (not salesy or generic)
 Length: 250-350 words
-FORMAT: Plain text only. No markdown. No asterisks. No bold. Use plain dashes for bullets.
+FORMAT: Plain text only. No markdown. No asterisks. No bold. Use plain dashes for bullets. Do NOT repeat the phrase 'We beat bank terms on every metric' more than once.
 Subject line (output ONLY the subject text, no label prefix): Offer for ${property.address} - $${Math.round(selectedOfferPrice).toLocaleString()}`
         break
 
