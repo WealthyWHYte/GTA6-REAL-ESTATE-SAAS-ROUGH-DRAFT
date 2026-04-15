@@ -202,13 +202,13 @@ AI ANALYSIS: ${analysisData.ai_analysis || ''}` : ''}
 
 OFFER DETAILS (use these exact numbers):
 - Purchase Price: $${Math.round(selectedOfferPrice).toLocaleString()}
-- Entry Fee Breakdown (Total: $${Math.round(selectedEntryFee).toLocaleString()}):
-    - Cash to Seller (3% or less): $${Math.round(selectedEntryFee * 0.30).toLocaleString()}
-    - Listing Agent Commission (3% or less): $${Math.round(selectedEntryFee * 0.15).toLocaleString()}
+- Entry Fee Breakdown (Total: $${Math.round(selectedEntryFee).toLocaleString()} = ${Math.round(selectedEntryFee/selectedOfferPrice*100)}% of offer):
+    - Cash to Seller (3% of offer): $${Math.round(selectedOfferPrice * 0.03).toLocaleString()}
+    - Listing Agent Commission (3% of offer): $${Math.round(selectedOfferPrice * 0.03).toLocaleString()}
     - Arrears / Liens / Issues: $${Math.round(selectedEntryFee * 0.10).toLocaleString()}
-    - Cost of Acquisition: $${Math.round(selectedEntryFee * 0.15).toLocaleString()}
-    - Close Escrow: $${Math.round(selectedEntryFee * 0.10).toLocaleString()}
-    - Renovation / Maintenance / Marketing: $${Math.round(selectedEntryFee * 0.20).toLocaleString()}
+    - Cost of Acquisition: $${Math.round(selectedEntryFee * 0.10).toLocaleString()}
+    - Close Escrow: $${Math.round(selectedEntryFee * 0.08).toLocaleString()}
+    - Renovation / Maintenance / Marketing: $${Math.round(selectedEntryFee - (selectedOfferPrice*0.06) - (selectedEntryFee*0.28)).toLocaleString()}
 - Existing Loan to Be Taken Over (Subject-To): $${Math.round(mortgageBalance).toLocaleString()}
 - Seller Finance Note (7-Year Balloon): $${Math.round(sellerCarryAmount).toLocaleString()}
 - Monthly Seller Financing Payment: $${Math.round(selectedMonthlyPayment).toLocaleString()}
