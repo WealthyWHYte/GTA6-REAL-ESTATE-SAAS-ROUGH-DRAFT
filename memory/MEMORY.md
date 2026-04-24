@@ -1,0 +1,1 @@
+- [Entry Fee Breakdown Structure](entry_fee_structure.md) — Seller/agent get % of offer, remainder split 40/25/15/20

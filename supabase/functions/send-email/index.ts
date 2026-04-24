@@ -85,7 +85,7 @@ serve(async (req) => {
 
     const messageId = await sendGmail(recipient_email, subject, body, fromEmail)
 
-    // Log to communications
+    // Log to communications table
     await supabase.from('communications').insert({
       account_id: user.id,
       property_id: property_id || null,
@@ -98,6 +98,37 @@ serve(async (req) => {
       gmail_message_id: messageId,
       sent_at: new Date().toISOString()
     })
+
+    // Create/update offer record for dashboard tracking
+    if (property_id) {
+      const { data: existingOffer } = await supabase
+        .from('offers')
+        .select('id')
+        .eq('property_id', property_id)
+        .eq('account_id', user.id)
+        .single()
+
+      if (existingOffer) {
+        // Update existing offer
+        await supabase
+          .from('offers')
+          .update({
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+            gmail_message_id: messageId
+          })
+          .eq('id', existingOffer.id)
+      } else {
+        // Create new offer record
+        await supabase.from('offers').insert({
+          account_id: user.id,
+          property_id: property_id,
+          status: 'sent',
+          sent_at: new Date().toISOString(),
+          gmail_message_id: messageId
+        })
+      }
+    }
 
     return new Response(JSON.stringify({ success: true, messageId }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
