@@ -83,17 +83,61 @@ serve(async (req) => {
   let action = urlAction
   let body: any = {}
   
-  if (req.method === "POST") {
-    try {
-      body = await req.json()
-      action = action || body.action
-    } catch (e) {
-      // No body or invalid JSON
+  console.log('Request:', req.method, 'URL:', req.url, 'content-type:', req.headers.get("content-type"))
+  
+  // Parse body content - handle both POST and GET requests
+  const contentType = req.headers.get("content-type") || ""
+  const method = req.method || "GET"
+  
+  // Try to parse body for any method (some clients put body in GET)
+  try {
+    const text = await req.text()
+    console.log('Raw request body:', text)
+    if (text) {
+      try {
+        body = JSON.parse(text)
+        action = action || body.action
+        console.log('Parsed body, action from body:', body.action, 'urlAction:', urlAction)
+      } catch {
+        // Not JSON, try URLSearchParams
+        const params = new URLSearchParams(text)
+        action = action || params.get("action")
+        body.action = action
+        console.log('Parsed as URLSearchParams, action:', action)
+      }
+    }
+  } catch (e) {
+    console.log('Body read error:', e)
+  }
+  
+  if (method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders })
+  }
+
+  // Debug: log what action we got
+  console.log('Final action before fallback:', action, 'body:', JSON.stringify(body))
+  console.log('URL searchParams:', url.searchParams.toString())
+  
+  // Fallback: detect callback from URL params (Google sends code, state)
+  if (!action) {
+    const code = url.searchParams.get("code")
+    const state = url.searchParams.get("state")
+    if (code || state) {
+      action = "callback"
+      console.log('Detected callback from URL params, code present:', !!code)
     }
   }
   
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders })
+  // Fallback: if body has action but wasn't captured, use it
+  if (!action && body && body.action) {
+    action = body.action
+    console.log('Used fallback action from body:', action)
+  }
+  
+  // If still no action but this is likely a function invocation, default to get_url
+  if (!action && Object.keys(body).length > 0) {
+    console.log('Defaulting to get_url since body present but no action')
+    action = "get_url"
   }
 
   try {
