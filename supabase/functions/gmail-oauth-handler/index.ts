@@ -77,7 +77,20 @@ async function getGmailAddress(accessToken: string): Promise<string> {
 
 serve(async (req) => {
   const url = new URL(req.url)
-  const action = url.searchParams.get("action")
+  const urlAction = url.searchParams.get("action")
+  
+  // Support action in URL or in request body
+  let action = urlAction
+  let body: any = {}
+  
+  if (req.method === "POST") {
+    try {
+      body = await req.json()
+      action = action || body.action
+    } catch (e) {
+      // No body or invalid JSON
+    }
+  }
   
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
@@ -91,7 +104,7 @@ serve(async (req) => {
 
     // ACTION 1: Get OAuth URL (frontend calls this to get the URL to open)
     if (action === "get_url") {
-      const { account_id } = await req.json()
+      const account_id = body.account_id
       
       // Create a state token that includes account_id
       const state = encodeURIComponent(JSON.stringify({ account_id }))
@@ -184,7 +197,7 @@ serve(async (req) => {
 
     // ACTION 3: Disconnect Gmail
     if (action === "disconnect") {
-      const { account_id } = await req.json()
+      const account_id = body.account_id
       
       await supabase
         .from("user_api_config")

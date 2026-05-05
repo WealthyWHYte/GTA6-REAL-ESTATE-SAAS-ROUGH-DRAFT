@@ -97,15 +97,31 @@ serve(async (req) => {
     console.log('🔄 Cron scheduler running - checking for Gmail replies...')
 
     // Get all users with Gmail connected (if no user specified)
-    const usersWithGmail = userId
-      ? [{ id: userId }]
-      : await supabase.from('user_accounts').select('account_id').eq('provider', 'gmail').neq('access_token', null)
+    let usersWithGmail: any[] = []
+    
+    if (userId) {
+      usersWithGmail = [{ id: userId }]
+    } else {
+      const { data, error: gmailError } = await supabase
+        .from('user_accounts')
+        .select('account_id')
+        .eq('provider', 'gmail')
+        .neq('access_token', null)
+      
+      if (gmailError) {
+        console.log('❌ user_accounts query error:', gmailError.message)
+        console.log('Full error:', JSON.stringify(gmailError))
+      }
+      
+      usersWithGmail = Array.isArray(data) ? data : []
+      console.log('📬 Found', usersWithGmail.length, 'users with Gmail')
+    }
 
     let processedCount = 0
     let draftsCreated = 0
 
-    for (const user of usersWithGmail || []) {
-      const accountId = user.id
+    for (const user of usersWithGmail) {
+      const accountId = user.account_id
       
       // Get Gmail token for this user
       const { data: account } = await supabase

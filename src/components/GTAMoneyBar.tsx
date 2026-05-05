@@ -41,7 +41,7 @@ export default function GTAMoneyBar() {
         .eq("account_id", user.id);
 
       // Calculate stats
-      const totalValue = properties?.reduce((sum, p) => sum + (p.list_price || 0), 0) || 0;
+      const totalValue = properties?.reduce((sum, p) => sum + (p.listing_price || 0), 0) || 0;
       const wholesaleFees = properties?.reduce((sum, p) => sum + ((p.offer_terms as any)?.wholesale_fee || 0), 0) || 0;
       const acquisitionFees = properties?.reduce((sum, p) => {
         const terms = p.offer_terms as any;
