@@ -113,7 +113,7 @@ export default function EmailCloserPage() {
     }
   })
 
-  // Get recent communications - filtered by account
+  // Get recent communications - filtered by account, with property data
   const { data: communications } = useQuery({
     queryKey: ['communications'],
     queryFn: async () => {
@@ -121,7 +121,7 @@ export default function EmailCloserPage() {
       if (!user) return []
       const { data } = await supabase
         .from('communications')
-        .select('*')
+        .select('*, properties:property_id(address, listing_agent_email)')
         .eq('account_id', user?.id)
         .order('created_at', { ascending: false })
         .limit(50)
@@ -129,13 +129,16 @@ export default function EmailCloserPage() {
     }
   })
 
-  // Get follow-up queue
+  // Get follow-up queue - shows properties needing follow-up at Day 3 and Day 7
   const { data: followUpQueue } = useQuery({
     queryKey: ['follow_up_queue'],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+      
       const { data } = await supabase
         .from('follow_up_queue')
-        .select('*')
+        .select('*, properties:property_id(address, agent_email, agent_name)')
         .eq('status', 'pending')
         .lte('scheduled_for', new Date().toISOString())
         .order('scheduled_for', { ascending: true })
@@ -319,11 +322,20 @@ export default function EmailCloserPage() {
         throw sendErr // Re-throw so user sees the error
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Mark property as contacted so it doesn't show in Underwriter queue
+      if (selectedOffer?.property_id) {
+        await supabase
+          .from('property_analysis')
+          .update({ contacted_at: new Date().toISOString() })
+          .eq('property_id', selectedOffer.property_id)
+      }
+
       setSendSuccess(true)
       queryClient.invalidateQueries({ queryKey: ['offers_pending'] })
       queryClient.invalidateQueries({ queryKey: ['communications'] })
       queryClient.invalidateQueries({ queryKey: ['follow_up_queue'] })
+      queryClient.invalidateQueries({ queryKey: ['property-analysis'] }) // Refresh underwriter queue
       setTimeout(() => {
         setSendSuccess(false)
         setShowPreview(false)
@@ -360,7 +372,7 @@ export default function EmailCloserPage() {
           </div>
           <div className="flex gap-2">
             {selectedOffer && (
-              <Button variant="outline" onClick={() => navigate('/agents/underwriter')}>
+              <Button variant="outline" onClick={() => navigate('/agent/underwriter')}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Underwriter
               </Button>
@@ -1009,14 +1021,14 @@ export default function EmailCloserPage() {
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium text-sm truncate">
-                          {item.offers?.properties?.address || 'Unknown'}
+                          {item.properties?.address || item.property_id}
                         </span>
                         <ChevronRight className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <Badge variant="outline">{item.follow_up_type.replace(/_/g, ' ')}</Badge>
+                        <Badge variant="outline">{item.follow_up_type?.replace(/_/g, ' ')}</Badge>
                         <span className="text-muted-foreground">
-                          {new Date(item.scheduled_for).toLocaleDateString()}
+                          Due: {new Date(item.scheduled_for).toLocaleDateString()}
                         </span>
                       </div>
                     </div>

@@ -67,6 +67,9 @@ interface Deal {
   expected_roi?: number
   max_offer_price?: number
   factors?: any
+  contacted_at?: string
+  contacted_via?: string
+  contact_count?: number
 }
 
 const fmt = (n: number | null | undefined) => {
@@ -118,6 +121,7 @@ export default function UnderwriterPage() {
   const [filterBeds, setFilterBeds] = useState<string>('')
   const [filterBaths, setFilterBaths] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState<string>('')
+  const [showContacted, setShowContacted] = useState<boolean>(false)
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -168,6 +172,9 @@ export default function UnderwriterPage() {
 
   // Apply all filters
   const filtered = (analysis || []).filter(d => {
+    // Filter out contacted properties (unless "Show Contacted" is enabled)
+    if (!showContacted && (d as any).contacted_at) return false
+
     if (filterStrategy !== 'all') {
       if (filterStrategy === 'Subject-To') {
         if (d.strategy !== 'Subject-To') return false
@@ -300,6 +307,19 @@ export default function UnderwriterPage() {
                 <option value="2">2+ Baths</option>
                 <option value="3">3+ Baths</option>
               </select>
+
+              {/* Show Contacted Toggle */}
+              <div className="flex items-center gap-2 ml-auto">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showContacted}
+                    onChange={(e) => setShowContacted(e.target.checked)}
+                    className="rounded border-slate-700 bg-slate-900"
+                  />
+                  Show Contacted
+                </label>
+              </div>
 
               {/* Strategy */}
               <Button size="sm" variant={filterStrategy === 'all' ? 'default' : 'outline'}
