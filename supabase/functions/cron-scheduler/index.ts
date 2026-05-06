@@ -113,11 +113,12 @@ serve(async (req) => {
       console.log('📊 All user_api_config records:', JSON.stringify(allConfig))
       console.log('📊 Debug error:', debugError)
       
-      // FIX: Simpler query - just check status (don't require refresh token column to exist)
+      // FIX: Simpler query - check gmail_app_password (stores refresh token)
       const { data, error: gmailError } = await supabase
         .from('user_api_config')
         .select('account_id')
-        .eq('gmail_status', 'connected')
+        .not('gmail_app_password', 'is', null)
+        .neq('gmail_app_password', '')
       
       if (gmailError) {
         console.log('❌ user_api_config query error:', gmailError.message)
@@ -134,12 +135,12 @@ serve(async (req) => {
     for (const user of usersWithGmail) {
       const accountId = user.account_id
       
-      // Get Gmail token for this user
+      // Get Gmail token for this user (now stored in gmail_app_password)
       const { data: account } = await supabase
         .from('user_api_config')
-        .select('*')
+        .select('*, gmail_app_password')
         .eq('account_id', accountId)
-        .eq('gmail_status', 'connected')
+        .not('gmail_app_password', 'is', null)
         .single()
 
       if (!account?.gmail_refresh_token && !account?.gmail_access_token) {

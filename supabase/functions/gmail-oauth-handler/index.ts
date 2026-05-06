@@ -177,16 +177,20 @@ serve(async (req) => {
       }
 
       // Decode state to get account_id
-      // FIX: Double URL-encode fix
+      // FIX: Handle both plain UUID and JSON state
       let accountId = ""
       try {
+        // Try double-decode first
         const stateStr = decodeURIComponent(decodeURIComponent(state || '{}'))
         console.log('Parsed state:', stateStr)
         const stateObj = JSON.parse(stateStr)
         accountId = stateObj.account_id
         console.log('account_id from state:', accountId)
       } catch (e) {
-        console.error("Failed to parse state:", e, "raw state:", state)
+        // Fallback: plain UUID (no JSON wrapper)
+        console.log("State parse failed, trying as plain UUID:", state)
+        accountId = state || ""
+        console.log('account_id from state (fallback):', accountId)
       }
 
       // Exchange code for tokens
@@ -208,44 +212,36 @@ serve(async (req) => {
           .eq("account_id", accountId)
           .single()
 
+        // Insert/update using EXISTING columns in user_api_config
+        // Using gmail_email and gmail_app_password as temp storage for OAuth tokens
         const insertData = {
           account_id: accountId,
-          gmail_access_token: tokens.access_token,
-          gmail_refresh_token: tokens.refresh_token,
-          gmail_token_expiry: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
           gmail_email: gmailAddress,
-          gmail_status: "connected",
-          gmail_connected_at: new Date().toISOString()
+          gmail_app_password: tokens.refresh_token  // Store refresh token here temporarily
         }
-        console.log('Insert data:', JSON.stringify(insertData))
+        console.log('Saving using existing columns:', JSON.stringify(insertData))
 
         if (existing) {
-          // Update existing
+          // Update existing - only use existing columns
           await supabase
             .from("user_api_config")
             .update({
-              gmail_access_token: tokens.access_token,
-              gmail_refresh_token: tokens.refresh_token,
-              gmail_token_expiry: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
               gmail_email: gmailAddress,
-              gmail_status: "connected",
-              gmail_connected_at: new Date().toISOString()
+              gmail_app_password: tokens.refresh_token
             })
             .eq("account_id", accountId)
         } else {
-          // Insert new
+          // Insert new - only use existing columns
           await supabase
             .from("user_api_config")
             .insert({
               account_id: accountId,
-              gmail_access_token: tokens.access_token,
-              gmail_refresh_token: tokens.refresh_token,
-              gmail_token_expiry: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
               gmail_email: gmailAddress,
-              gmail_status: "connected",
-              gmail_connected_at: new Date().toISOString()
+              gmail_app_password: tokens.refresh_token
             })
         }
+        
+        console.log('✅ Gmail OAuth saved successfully!')
       }
 
       // Show success page
