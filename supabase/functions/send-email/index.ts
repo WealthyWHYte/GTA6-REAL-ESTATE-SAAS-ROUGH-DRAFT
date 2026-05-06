@@ -6,10 +6,48 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-async function getAccessToken(): Promise<string> {
-  const clientId = Deno.env.get('GMAIL_CLIENT_ID')!
-  const clientSecret = Deno.env.get('GMAIL_CLIENT_SECRET')!
-  const refreshToken = Deno.env.get('GMAIL_REFRESH_TOKEN')!
+// Get user's Gmail token from database
+async function getUserGmailToken(supabase: any, userId: string): Promise<{clientId: string, clientSecret: string, refreshToken: string} | null> {
+  console.log('📡 Querying for user:', userId)
+  
+  // First check if table has gmail columns - try querying all columns
+  const { data, error } = await supabase
+    .from('user_api_config')
+    .select('*')
+    .eq('account_id', userId)
+    .limit(1)
+  
+  console.log('📊 user_api_config query result:', JSON.stringify({ data, error }))
+  
+  if (error) {
+    console.error('❌ Query error:', error.message)
+    return null
+  }
+  
+  if (!data || data.length === 0) {
+    console.log('⚠️ No row found for account_id:', userId)
+    return null
+  }
+  
+  const row = data[0]
+  console.log('📋 Row keys:', Object.keys(row))
+  
+  // Check for gmail_refresh_token in various possible column names
+  const refreshToken = row.gmail_refresh_token || row.refresh_token || row.gmail_token
+  if (!refreshToken) {
+    console.log('⚠️ No refresh token in row. Available gmail fields:', Object.keys(row).filter(k => k.includes('gmail') || k.includes('token')))
+    return null
+  }
+  
+  return {
+    clientId: row.gmail_client_id || row.client_id || '',
+    clientSecret: row.gmail_client_secret || row.client_secret || '',
+    refreshToken: refreshToken
+  }
+}
+
+async function getAccessToken(creds: {clientId: string, clientSecret: string, refreshToken: string}): Promise<string> {
+  const { clientId, clientSecret, refreshToken } = creds
 
   const resp = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -23,11 +61,23 @@ async function getAccessToken(): Promise<string> {
   })
   const data = await resp.json()
   if (!data.access_token) throw new Error('Failed to get access token: ' + JSON.stringify(data))
+  console.log('✅ Got fresh access token for user')
   return data.access_token
 }
 
+// Send Gmail using env vars (fallback)
 async function sendGmail(to: string, subject: string, body: string, fromEmail: string): Promise<string> {
-  const accessToken = await getAccessToken()
+  const clientId = Deno.env.get('GMAIL_CLIENT_ID')!
+  const clientSecret = Deno.env.get('GMAIL_CLIENT_SECRET')!
+  const refreshToken = Deno.env.get('GMAIL_REFRESH_TOKEN')!
+  
+  const accessToken = await getAccessToken({ clientId, clientSecret, refreshToken })
+  
+  return sendGmailWithToken(to, subject, body, fromEmail, accessToken)
+}
+
+// Send Gmail using pre-fetched access token
+async function sendGmailWithToken(to: string, subject: string, body: string, fromEmail: string, accessToken: string): Promise<string> {
 
   const email = [
     `From: Wealthanaire Capital <${fromEmail}>`,
@@ -79,12 +129,32 @@ serve(async (req) => {
     if (!subject) throw new Error('subject required')
     if (!body) throw new Error('body required')
 
-    const fromEmail = Deno.env.get('GMAIL_FROM_EMAIL') || 'aiwealthanaire@gmail.com'
+    // Get user's Gmail credentials from database
+    const userCreds = await getUserGmailToken(supabase, user.id)
+    let fromEmail = 'aiwealthanaire@gmail.com'
+    
+    if (userCreds) {
+      console.log('✅ Using user Gmail credentials from database')
+      // Get user's email from their config
+      const { data: userConfig } = await supabase
+        .from('user_api_config')
+        .select('gmail_email')
+        .eq('account_id', user.id)
+        .single()
+      fromEmail = userConfig?.gmail_email || fromEmail
+      
+      // Use user's credentials
+      const accessToken = await getAccessToken(userCreds)
+      const messageId = await sendGmailWithToken(recipient_email, subject, body, fromEmail, accessToken)
+    } else {
+      // Fallback to env vars
+      console.log('⚠️ No user Gmail token, trying env vars')
+      fromEmail = Deno.env.get('GMAIL_FROM_EMAIL') || fromEmail
+      const messageId = await sendGmail(recipient_email, subject, body, fromEmail)
+    }
 
     console.log(`📧 Sending to ${recipient_email}: ${subject}`)
     console.log(`🔍 Validating property_id: ${property_id}`)
-
-    const messageId = await sendGmail(recipient_email, subject, body, fromEmail)
 
     // Resolve property_id to the correct format (TEXT, not UUID)
     let validPropertyId: string | null = null

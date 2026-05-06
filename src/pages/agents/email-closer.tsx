@@ -36,6 +36,9 @@ export default function EmailCloserPage() {
   const [expandedLevel, setExpandedLevel] = useState<number | null>(1)
   const [showFullPropertyDetails, setShowFullPropertyDetails] = useState(false)
   const [emailMode, setEmailMode] = useState<'seller' | 'buyer'>('seller') // Toggle between seller outreach and buyer dispo
+  const [notes, setNotes] = useState('')
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [showNotesField, setShowNotesField] = useState(false)
 
   const queryClient = useQueryClient()
 
@@ -125,6 +128,22 @@ export default function EmailCloserPage() {
         .eq('account_id', user?.id)
         .order('created_at', { ascending: false })
         .limit(50)
+      return data || []
+    }
+  })
+
+  // Get AI drafts pending approval
+  const { data: pendingApprovals } = useQuery({
+    queryKey: ['pending_approvals'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+      const { data } = await supabase
+        .from('communications')
+        .select('*, properties:property_id(address, listing_agent_email)')
+        .eq('account_id', user?.id)
+        .eq('status', 'pending_approval')
+        .order('created_at', { ascending: false })
       return data || []
     }
   })
@@ -349,10 +368,126 @@ export default function EmailCloserPage() {
     }
   })
 
+  // Approve draft mutation
+  const approveDraftMutation = useMutation({
+    mutationFn: async (draft: any) => {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      // Send via Gmail
+      const recipientEmail = draft.agent_email || draft.properties?.agent_email
+      const recipientName = draft.agent_name || draft.properties?.agent_name
+
+      if (!recipientEmail) {
+        throw new Error('Recipient email is missing')
+      }
+
+      try {
+        const { data, error } = await supabase.functions.invoke('send-email', {
+          body: {
+            property_id: draft.property_id,
+            recipient_email: recipientEmail,
+            recipient_name: recipientName,
+            subject: draft.subject,
+            body: draft.body,
+            level: draft.level
+          }
+        })
+        if (error) throw error
+        return data
+      } catch (sendErr: any) {
+        console.error('❌ Gmail send failed:', sendErr)
+        throw sendErr
+      }
+    },
+    onSuccess: async (_, draft) => {
+      // Update status to sent
+      await supabase
+        .from('communications')
+        .update({ status: 'sent' })
+        .eq('id', draft.id)
+      
+      queryClient.invalidateQueries({ queryKey: ['pending_approvals'] })
+      queryClient.invalidateQueries({ queryKey: ['communications'] })
+    },
+    onError: (err: any) => {
+      console.error('❌ Approve error:', err)
+      alert('Failed to approve: ' + err?.message)
+    }
+  })
+
+  // Discard draft mutation
+  const discardDraftMutation = useMutation({
+    mutationFn: async (draft: any) => {
+      await supabase
+        .from('communications')
+        .delete()
+        .eq('id', draft.id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending_approvals'] })
+    }
+  })
+
+  // Snooze offer mutation
+  const snoozeOfferMutation = useMutation({
+    mutationFn: async (offer: any) => {
+      const snoozedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      await supabase
+        .from('offers')
+        .update({ snoozed_until: snoozedUntil })
+        .eq('id', offer.id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['offers_pending'] })
+    }
+  })
+
+  // Save notes mutation
+  const saveNotesMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedOffer?.property_id || !notes.trim()) return
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('communications').insert({
+        account_id: user?.id,
+        property_id: selectedOffer.property_id,
+        direction: 'internal',
+        comm_type: 'note',
+        subject: 'Internal Note',
+        body: notes,
+        status: 'note_saved'
+      })
+    },
+    onSuccess: () => {
+      setNotes('')
+      setShowNotesField(false)
+      queryClient.invalidateQueries({ queryKey: ['communications'] })
+      alert('Note saved!')
+    }
+  })
+
+  // Save tags mutation
+  const saveTagsMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedOffer?.property_id || selectedTags.length === 0) return
+      // Save tags as JSON in offers table
+      await supabase
+        .from('offers')
+        .update({ tags: selectedTags })
+        .eq('property_id', selectedOffer.property_id)
+        .eq('account_id', selectedOffer.account_id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['offers_pending'] })
+      alert('Tags saved!')
+    }
+  })
+
+  const TAGS = ['Hot Lead', 'Price Objection', 'Needs POF', 'Wrong Timing', 'Not Interested']
+
   const stats = {
     pending: pendingOffers?.length || 0,
     followUps: followUpQueue?.length || 0,
-    responded: communications?.filter((c: any) => c.direction === 'inbound').length || 0
+    responded: (communications?.filter((c: any) => c.direction === 'inbound').length || 0) + (pendingApprovals?.length || 0)
   }
 
   const levelData = getLevelData()
@@ -437,6 +572,53 @@ export default function EmailCloserPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Pending Approval Section */}
+        {pendingApprovals && pendingApprovals.length > 0 && (
+          <Card className="border-yellow-500/50 bg-yellow-500/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-yellow-600">
+                <Clock className="w-5 h-5" />
+                Pending Approval ({pendingApprovals.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {pendingApprovals.map((draft: any) => (
+                  <div key={draft.id} className="p-4 border border-yellow-500/30 rounded-lg bg-background">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-medium">{draft.properties?.address || 'Unknown Property'}</p>
+                        <Badge variant="outline" className="mt-1">
+                          Objection: {draft.objection_type || 'N/A'}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => approveDraftMutation.mutate(draft)}
+                          disabled={approveDraftMutation.isPending}
+                        >
+                          {approveDraftMutation.isPending ? 'Sending...' : '✅ Approve & Send'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => discardDraftMutation.mutate(draft)}
+                        >
+                          Discard
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded text-sm mt-2">
+                      <p className="text-muted-foreground line-clamp-3">{draft.body}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
@@ -627,6 +809,68 @@ export default function EmailCloserPage() {
                           <p className="text-sm text-blue-900">{selectedOffer.reasoning}</p>
                         </div>
                       )}
+
+                      {/* Tags Row */}
+                      <div className="mt-4 pt-4 border-t">
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                          <Badge className="w-4 h-4" /> Tags
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {TAGS.map(tag => (
+                            <Badge
+                              key={tag}
+                              variant={selectedTags.includes(tag) ? 'default' : 'outline'}
+                              className="cursor-pointer"
+                              onClick={() => {
+                                setSelectedTags(prev => 
+                                  prev.includes(tag) 
+                                    ? prev.filter(t => t !== tag)
+                                    : [...prev, tag]
+                                )
+                              }}
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => saveTagsMutation.mutate()}
+                            disabled={saveTagsMutation.isPending}
+                          >
+                            Save Tags
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Notes Field */}
+                      <div className="mt-4 pt-4 border-t">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowNotesField(!showNotesField)}
+                          className="mb-2"
+                        >
+                          {showNotesField ? 'Hide Notes' : '+ Add Note'}
+                        </Button>
+                        {showNotesField && (
+                          <div className="space-y-2">
+                            <Textarea
+                              placeholder="Add internal notes about this property..."
+                              value={notes}
+                              onChange={(e) => setNotes(e.target.value)}
+                              rows={3}
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => saveNotesMutation.mutate()}
+                              disabled={saveNotesMutation.isPending || !notes.trim()}
+                            >
+                              Save Note
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>
@@ -815,9 +1059,22 @@ export default function EmailCloserPage() {
                           {offer.status}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-4 mt-3 text-sm">
-                        <span>Offer: ${offer.offer_price?.toLocaleString()}</span>
-                        <span>Sent: {offer.sent_at ? new Date(offer.sent_at).toLocaleDateString() : 'N/A'}</span>
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center gap-4 text-sm">
+                          <span>Offer: ${offer.offer_price?.toLocaleString()}</span>
+                          <span>Sent: {offer.sent_at ? new Date(offer.sent_at).toLocaleDateString() : 'N/A'}</span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            snoozeOfferMutation.mutate(offer)
+                          }}
+                          disabled={snoozeOfferMutation.isPending}
+                        >
+                          {snoozeOfferMutation.isPending ? '⏳' : '⏰'} Snooze 7 days
+                        </Button>
                       </div>
                     </div>
                   ))}

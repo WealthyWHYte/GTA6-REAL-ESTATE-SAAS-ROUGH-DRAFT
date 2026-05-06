@@ -1,33 +1,70 @@
 # Project Summary
 
 ## Overall Goal
-Build a real estate SaaS platform with Gmail OAuth integration for automated listing agent communications, using Supabase Edge Functions.
+Build a comprehensive real estate investment CRM SaaS with AI agents for automated lead outreach, negotiation, and deal management.
 
 ## Key Knowledge
-- **Supabase Project**: `mabphntvwnxmhshqbqcn`
-- **Target Account ID**: `757a0f4a-49cd-43b3-b6c2-70274f611039` (goldenwaffle86@gmail.com)
-- **Deployment Flag**: `--no-verify-jwt` (required for both functions)
-- **Token Storage**: `user_api_config` table with columns:
-  - `gmail_refresh_token` (stores OAuth refresh token)
-  - `gmail_access_token` (stores access token)
-  - `gmail_token_expiry` (ISO timestamp for expiry)
-  - `gmail_email` (user's Gmail address)
-- **Token Refresh Logic**: Check expiry 5 minutes before actual expiry time; refresh via `POST https://oauth2.googleapis.com/token` with `grant_type=refresh_token`
+- **Tech Stack**: React + TypeScript + Supabase + Tailwind CSS + shadcn/ui
+- **Auth**: goldenwaffle86@gmail.com (account_id: 757a0f4a-49cd-43b3-b6c2-70274f611039)
+- **Database**: Supabase (project: mabphntvwnxmhshqbqcn)
+- **Routes**: Underwriter is at /agent/underwriter (singular, NOT /agents/underwriter plural)
+- **Cron**: Runs every 5 minutes, polls Gmail for replies, creates AI drafts in pending_approval status
 
 ## Recent Actions
-1. **[DONE] Updated gmail-oauth-handler**: Changed from storing tokens in `gmail_app_password` to using proper `gmail_refresh_token` column; added explicit error logging: `console.log('Upsert result:', JSON.stringify(data), 'Error:', JSON.stringify(error))`
-2. **[DONE] Updated cron-scheduler**: Now queries `user_api_config` where `account_id = '757a0f4a-49cd-43b3-b6c2-70274f611039'`; uses `gmail_refresh_token` from DB with fallback to `GMAIL_REFRESH_TOKEN` env var
-3. **[DONE] Added token expiry check**: Before polling Gmail, checks if `gmail_token_expiry` is expired or null; refreshes access token via Google OAuth if needed; updates `gmail_access_token` and `gmail_token_expiry` in DB
-4. **[DONE] All deployments pushed to GitHub** after each change
+
+### Email Automation [DONE]
+- gmail-oauth-handler saves tokens to user_api_config (gmail_refresh_token, gmail_access_token, gmail_token_expiry)
+- cron-scheduler queries DB for specific account_id, refreshes tokens if expired, polls Gmail
+- Test run successful: Created 1 AI draft from Propwire.com email (objection: timing)
+
+### Contacted Tracking [DONE]
+- Added contacted_at, contacted_via, contact_count columns to property_analysis
+- Email-closer marks property as contacted on send
+- Underwriter has "Show Contacted" toggle (hidden by default)
+- Route fix: Changed /agents/underwriter → /agent/underwriter
+
+### CRM Features Implemented [DONE]
+- TagPicker, TagManager components
+- DealNotes (persistent notes)
+- SnoozeDialog (snooze/defer deals)
+- ActivityTimeline
+- GlobalSearch (Cmd/Ctrl+K)
+- BulkActionBar
+- Calendar page (/calendar)
+- Tasks page (/tasks)
+
+### Database Migrations [PENDING]
+- 022_add_contacted_tracking.sql - needs to be applied
+- 021_complete_crm_features.sql - needs to be applied
+- Manual DB push required due to policy conflicts
 
 ## Current Plan
-- [DONE] Fix gmail-oauth-handler to save to correct column (`gmail_refresh_token`)
-- [DONE] Update cron-scheduler to query specific account and use proper token columns
-- [DONE] Add token expiry refresh logic before polling Gmail
-- [TODO] User needs to click a fresh OAuth link to authorize again (so tokens save to correct column)
-- [TODO] Test cron-scheduler to verify Gmail polling works
+
+### Immediate Tasks [TODO]
+1. [TODO] Run database migration for contacted_at column
+2. [TODO] Verify build compiles (npm run build)
+3. [TODO] Test "Return to Underwriter" button works
+
+### CRM Phase Completion [TODO]
+- [TODO] Add persistent notes table to schema
+- [TODO] Build win/loss analysis dashboard  
+- [TODO] Multi-user/team UI
+
+### Testing Complete [DONE]
+- Cron-scheduler: 200 OK, 3.46s, created 1 draft
+- Response: `{"success":true,"message":"Checked Gmail for goldenwaffle86@gmail.com, created 1 drafts","draftsCreated":1}`
+
+## Key Files Modified
+- supabase/functions/cron-scheduler/index.ts - Token refresh logic
+- supabase/functions/gmail-oauth-handler/index.ts - OAuth flow
+- src/pages/agents/email-closer.tsx - Contacted tracking + route fix
+- src/pages/agents/underwriter.tsx - Show Contacted toggle
+- src/components/GlobalSearch.tsx - Global search
+- src/pages/calendar.tsx - Calendar
+- src/pages/tasks.tsx - Tasks
+- src/App.tsx - Routes + keyboard shortcut
 
 ---
 
 ## Summary Metadata
-**Update time**: 2026-05-06T18:02:52.588Z 
+**Update time**: 2026-05-06T18:44:31.568Z 
