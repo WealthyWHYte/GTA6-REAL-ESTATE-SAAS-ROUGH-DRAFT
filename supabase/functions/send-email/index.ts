@@ -40,8 +40,9 @@ async function getUserGmailToken(supabase: any, userId: string): Promise<{client
   }
   
   return {
-    clientId: row.gmail_client_id || row.client_id || '',
-    clientSecret: row.gmail_client_secret || row.client_secret || '',
+    // Use env vars for client_id/secret (they're static), DB for refresh token (user-specific)
+    clientId: Deno.env.get('GMAIL_CLIENT_ID') || row.gmail_client_id || '',
+    clientSecret: Deno.env.get('GMAIL_CLIENT_SECRET') || row.gmail_client_secret || '',
     refreshToken: refreshToken
   }
 }
