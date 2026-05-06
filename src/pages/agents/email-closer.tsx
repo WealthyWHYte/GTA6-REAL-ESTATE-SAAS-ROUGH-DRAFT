@@ -148,18 +148,24 @@ export default function EmailCloserPage() {
     }
   })
 
-  // Get follow-up queue - shows properties needing follow-up at Day 3 and Day 7
+  // Get follow-up queue - shows properties needing follow-up
   const { data: followUpQueue } = useQuery({
     queryKey: ['follow_up_queue'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return []
       
-      // Simple query - no date filters to avoid URL encoding issues
-      const { data } = await supabase
+      // Simple query without joins - avoid 400 errors
+      const { data, error } = await supabase
         .from('follow_up_queue')
-        .select('*, properties:property_id(address, agent_email, agent_name)')
+        .select('id, property_id, offer_id, follow_up_type, scheduled_for, status, notes')
         .eq('status', 'pending')
+      
+      if (error) {
+        console.error('follow_up_queue query error:', error)
+        return []
+      }
+      
       return (data || []).filter(item => new Date(item.scheduled_for) <= new Date()).sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())
     }
   })
