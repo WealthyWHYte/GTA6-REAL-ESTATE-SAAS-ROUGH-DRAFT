@@ -1,0 +1,203 @@
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:14px;color:var(--color-text-primary)}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:16px}
+.hdr-left{font-size:13px;color:var(--color-text-secondary)}
+.hdr-title{font-size:16px;font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat{border-radius:var(--border-radius-md);padding:12px 14px;border-left:3px solid}
+.stat-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.stat-num{font-size:22px;font-weight:500}
+.stat-orange{background:#fff8f0;border-color:#d97706}.stat-orange .stat-label{color:#92400e}.stat-orange .stat-num{color:#b45309}
+.stat-yellow{background:#fffbeb;border-color:#ca8a04}.stat-yellow .stat-label{color:#78350f}.stat-yellow .stat-num{color:#92400e}
+.stat-green{background:#f0fdf4;border-color:#16a34a}.stat-green .stat-label{color:#14532d}.stat-green .stat-num{color:#15803d}
+.stat-blue{background:#eff6ff;border-color:#2563eb}.stat-blue .stat-label{color:#1e3a8a}.stat-blue .stat-num{color:#1d4ed8}
+.section-title{font-size:12px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.ai-approval{border:1.5px solid #d97706;border-radius:var(--border-radius-lg);background:#fffbeb;padding:14px;margin-bottom:16px}
+.ai-approval-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ai-badge{background:#fef3c7;color:#92400e;font-size:11px;font-weight:500;padding:3px 8px;border-radius:20px}
+.objection-badge{background:#fee2e2;color:#991b1b;font-size:11px;padding:3px 8px;border-radius:20px}
+.ai-preview{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px;font-size:13px;color:var(--color-text-secondary);line-height:1.5;margin-bottom:10px}
+.ai-actions{display:flex;gap:8px}
+.btn-approve{background:#16a34a;color:#fff;border:none;padding:6px 14px;border-radius:var(--border-radius-md);font-size:12px;font-weight:500;cursor:pointer}
+.btn-edit{background:var(--color-background-secondary);color:var(--color-text-primary);border:0.5px solid var(--color-border-tertiary);padding:6px 14px;border-radius:var(--border-radius-md);font-size:12px;cursor:pointer}
+.btn-discard{background:#fee2e2;color:#991b1b;border:none;padding:6px 14px;border-radius:var(--border-radius-md);font-size:12px;cursor:pointer}
+.offer-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:12px 14px;margin-bottom:8px;border-left:3px solid}
+.offer-red{border-left-color:#dc2626}
+.offer-orange{border-left-color:#d97706}
+.offer-green{border-left-color:#16a34a}
+.offer-row{display:flex;align-items:center;justify-content:space-between}
+.offer-addr{font-weight:500;font-size:14px}
+.offer-meta{display:flex;gap:8px;margin-top:4px;align-items:center}
+.days-badge{font-size:11px;padding:2px 7px;border-radius:20px;font-weight:500}
+.days-red{background:#fee2e2;color:#991b1b}
+.days-orange{background:#fff7ed;color:#92400e}
+.days-green{background:#f0fdf4;color:#14532d}
+.status-pill{font-size:11px;padding:2px 7px;border-radius:20px;background:#f1f5f9;color:#475569}
+.offer-price{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.snooze-btn{font-size:11px;color:var(--color-text-secondary);cursor:pointer;background:none;border:0.5px solid var(--color-border-tertiary);padding:3px 8px;border-radius:var(--border-radius-md)}
+.activity-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.activity-icon{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;margin-top:1px}
+.icon-out{background:#eff6ff;color:#1d4ed8}
+.icon-in{background:#f0fdf4;color:#15803d}
+.icon-ai{background:#fffbeb;color:#92400e}
+.activity-subject{font-size:13px;font-weight:500}
+.activity-meta{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.panel{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px}
+</style>
+
+<div style="padding:0 0 20px">
+
+<div class="hdr">
+  <span class="hdr-left">← Back to Underwriter</span>
+  <span class="hdr-title">Email Closer — CRM</span>
+  <span style="font-size:12px;color:var(--color-text-secondary)">goldenwaffle86 · aiwealthanaire@gmail.com</span>
+</div>
+
+<div class="stats">
+  <div class="stat stat-orange">
+    <div class="stat-label">Pending Response</div>
+    <div class="stat-num">6</div>
+  </div>
+  <div class="stat stat-yellow">
+    <div class="stat-label">Due Follow-up</div>
+    <div class="stat-num">2</div>
+  </div>
+  <div class="stat stat-green">
+    <div class="stat-label">Replies Received</div>
+    <div class="stat-num">1</div>
+  </div>
+  <div class="stat stat-blue">
+    <div class="stat-label">Pending Approval</div>
+    <div class="stat-num">1</div>
+  </div>
+</div>
+
+<div style="margin-bottom:16px">
+  <div class="section-title">AI drafts — pending your approval</div>
+  <div class="ai-approval">
+    <div class="ai-approval-hdr">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="ai-badge">AI Draft</span>
+        <span style="font-size:13px;font-weight:500">info@propwire.com</span>
+        <span class="objection-badge">Wrong Timing</span>
+      </div>
+      <span style="font-size:12px;color:var(--color-text-secondary)">5/6/2026</span>
+    </div>
+    <div style="font-size:12px;font-weight:500;color:#92400e;margin-bottom:6px">Re: Property — No Pressure</div>
+    <div class="ai-preview">I completely understand timing is everything in real estate. Would it make sense to revisit this in 30 days? I can hold our offer terms as-is — no pressure, no expiration. Just let me know what timeline works best for your seller and we'll structure around it.</div>
+    <div class="ai-actions">
+      <button class="btn-approve">Approve & Send</button>
+      <button class="btn-edit">Edit</button>
+      <button class="btn-discard">Discard</button>
+    </div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div>
+    <div class="section-title">Offers awaiting response</div>
+
+    <div class="offer-card offer-red">
+      <div class="offer-row">
+        <span class="offer-addr">423 NE 3RD ST</span>
+        <span class="offer-price">$1,850,000</span>
+      </div>
+      <div class="offer-meta">
+        <span class="days-badge days-red">Day 15</span>
+        <span class="status-pill">pending response</span>
+        <button class="snooze-btn">Snooze 7d</button>
+      </div>
+    </div>
+
+    <div class="offer-card offer-red">
+      <div class="offer-row">
+        <span class="offer-addr">10 PELICAN DR</span>
+        <span class="offer-price">$14,700,000</span>
+      </div>
+      <div class="offer-meta">
+        <span class="days-badge days-red">Day 13</span>
+        <span class="status-pill">pending response</span>
+        <button class="snooze-btn">Snooze 7d</button>
+      </div>
+    </div>
+
+    <div class="offer-card offer-orange">
+      <div class="offer-row">
+        <span class="offer-addr">2520 DEL LAGO DR</span>
+        <span class="offer-price">$28,400,000</span>
+      </div>
+      <div class="offer-meta">
+        <span class="days-badge days-orange">Day 13</span>
+        <span class="status-pill">pending response</span>
+        <button class="snooze-btn">Snooze 7d</button>
+      </div>
+    </div>
+
+    <div class="offer-card offer-orange">
+      <div class="offer-row">
+        <span class="offer-addr">863 VANDA TER</span>
+        <span class="offer-price">$1,195,000</span>
+      </div>
+      <div class="offer-meta">
+        <span class="days-badge days-orange">Day 13</span>
+        <span class="status-pill">pending response</span>
+        <button class="snooze-btn">Snooze 7d</button>
+      </div>
+    </div>
+
+    <div class="offer-card offer-green">
+      <div class="offer-row">
+        <span class="offer-addr">2616 ACACIA CT</span>
+        <span class="offer-price">$3,495,000</span>
+      </div>
+      <div class="offer-meta">
+        <span class="days-badge days-green">Day 11</span>
+        <span class="status-pill">pending response</span>
+        <button class="snooze-btn">Snooze 7d</button>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">Recent activity</div>
+    <div class="panel" style="padding:8px 14px">
+
+      <div class="activity-item">
+        <div class="activity-icon icon-ai">AI</div>
+        <div>
+          <div class="activity-subject">Re: Property — No Pressure</div>
+          <div class="activity-meta">AI draft · Propwire.com · timing objection · 5/6/2026</div>
+        </div>
+      </div>
+
+      <div class="activity-item">
+        <div class="activity-icon icon-out">OUT</div>
+        <div>
+          <div class="activity-subject">Offer for 1314 FERDINAND ST</div>
+          <div class="activity-meta">$1,499,000 · sent · 5/6/2026</div>
+        </div>
+      </div>
+
+      <div class="activity-item">
+        <div class="activity-icon icon-out">OUT</div>
+        <div>
+          <div class="activity-subject">Offer for 423 NE 3RD ST</div>
+          <div class="activity-meta">$1,850,000 · sent · 5/6/2026</div>
+        </div>
+      </div>
+
+      <div class="activity-item">
+        <div class="activity-icon icon-out">OUT</div>
+        <div>
+          <div class="activity-subject">Offer for 10292 EMERSON ST</div>
+          <div class="activity-meta">$2,750,000 · sent · 5/6/2026</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</div>

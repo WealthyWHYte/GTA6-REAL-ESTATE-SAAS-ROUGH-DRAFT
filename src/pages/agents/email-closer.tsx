@@ -552,120 +552,64 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-4 gap-[10px] mb-4">
           {/* Pending Response - Orange */}
-          <Card className="border-l-4 border-l-orange-500 shadow-lg">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-orange-500/10 rounded-lg">
-                  <Clock className="w-6 h-6 text-orange-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.pending}</p>
-                  <p className="text-sm text-muted-foreground">Pending Response</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          {/* Due for Follow-up - Yellow */}
-          <Card className="border-l-4 border-l-yellow-500 shadow-lg">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-yellow-500/10 rounded-lg">
-                  <History className="w-6 h-6 text-yellow-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.followUps}</p>
-                  <p className="text-sm text-muted-foreground">Due for Follow-up</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-md p-3 px-4 border-l-[3px] border-orange-600 bg-orange-50">
+            <div className="text-[11px] font-medium uppercase tracking-wider text-amber-800 mb-1">Pending Response</div>
+            <div className="text-[22px] font-medium text-amber-900">{stats.pending}</div>
+          </div>
+          {/* Due Follow-up - Yellow */}
+          <div className="rounded-md p-3 px-4 border-l-[3px] border-yellow-600 bg-amber-50">
+            <div className="text-[11px] font-medium uppercase tracking-wider text-yellow-800 mb-1">Due Follow-up</div>
+            <div className="text-[22px] font-medium text-yellow-900">{stats.followUps}</div>
+          </div>
           {/* Replies Received - Green */}
-          <Card className="border-l-4 border-l-green-500 shadow-lg">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-green-500/10 rounded-lg">
-                  <Reply className="w-6 h-6 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.responded}</p>
-                  <p className="text-sm text-muted-foreground">Replies Received</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-md p-3 px-4 border-l-[3px] border-green-600 bg-green-50">
+            <div className="text-[11px] font-medium uppercase tracking-wider text-green-900 mb-1">Replies Received</div>
+            <div className="text-[22px] font-medium text-green-800">{stats.responded}</div>
+          </div>
           {/* Pending Approval - Blue */}
-          <Card className="border-l-4 border-l-blue-500 shadow-lg">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-500/10 rounded-lg">
-                  <CheckCircle className="w-6 h-6 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{pendingApprovals?.length || 0}</p>
-                  <p className="text-sm text-muted-foreground">Pending Approval</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-md p-3 px-4 border-l-[3px] border-blue-600 bg-blue-50">
+            <div className="text-[11px] font-medium uppercase tracking-wider text-blue-900 mb-1">Pending Approval</div>
+            <div className="text-[22px] font-medium text-blue-800">{pendingApprovals?.length || 0}</div>
+          </div>
         </div>
 
-        {/* Pending Approval Section - Gold/Yellow */}
+        {/* AI drafts - pending your approval */}
         {pendingApprovals && pendingApprovals.length > 0 && (
-          <Card className="border-2 border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 mb-6 shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
-                <Clock className="w-5 h-5" />
-                ⏳ Pending Approval ({pendingApprovals.length})
-              </CardTitle>
-              <CardDescription>
-                AI-generated responses awaiting your approval
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {pendingApprovals.map((draft: any) => (
-                  <div key={draft.id} className="p-4 border-2 border-yellow-300 rounded-lg bg-white dark:bg-gray-900 shadow-md">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <p className="font-semibold text-lg">📧 To: {draft.to_email}</p>
-                        <Badge variant="outline" className="mt-2 bg-yellow-100 text-yellow-800 border-yellow-300">
-                          📝 {draft.subject || 'AI Draft Response'}
-                        </Badge>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => approveDraftMutation.mutate(draft)}
-                          disabled={approveDraftMutation.isPending}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          {approveDraftMutation.isPending ? 'Sending...' : '✅ Approve & Send'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => discardDraftMutation.mutate(draft)}
-                          className="text-red-600 border-red-300 hover:bg-red-50"
-                        >
-                          🗑️ Discard
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-muted/50 rounded text-sm border-l-4 border-yellow-400">
-                      <p className="text-foreground line-clamp-4">{draft.body}</p>
-                    </div>
+          <div className="mb-4">
+            <div className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground mb-2">AI drafts — pending your approval</div>
+            {pendingApprovals.map((draft: any) => (
+              <div key={draft.id} className="border-[1.5px] border-yellow-600 rounded-lg bg-amber-50 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-amber-100 text-amber-800 text-[11px] font-medium px-2 py-0.5 rounded-full">AI Draft</span>
+                    <span className="text-[13px] font-medium">{draft.to_email}</span>
+                    <span className="bg-red-100 text-red-800 text-[11px] px-2 py-0.5 rounded-full">Wrong Timing</span>
                   </div>
-                ))}
+                  <span className="text-[12px] text-muted-foreground">{draft.created_at ? new Date(draft.created_at).toLocaleDateString() : '5/6/2026'}</span>
+                </div>
+                <div className="text-[12px] font-medium text-amber-800 mb-2">{draft.subject || 'Re: Property — No Pressure'}</div>
+                <div className="bg-background border border-border rounded-md p-3 text-[13px] text-muted-foreground leading-relaxed mb-3">
+                  {draft.body}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => approveDraftMutation.mutate(draft)} disabled={approveDraftMutation.isPending} className="bg-green-600 hover:bg-green-700 text-white border-none text-[12px] font-medium px-4">
+                    {approveDraftMutation.isPending ? 'Sending...' : 'Approve & Send'}
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-[12px] px-4">Edit</Button>
+                  <Button size="sm" onClick={() => discardDraftMutation.mutate(draft)} className="bg-red-100 text-red-800 border-none text-[12px] hover:bg-red-200">
+                    Discard
+                  </Button>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            ))}
+          </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left Column: Offers */}
+          <div className="space-y-4">
             {/* Property/Deal Info when coming from Underwriter */}
             {selectedOffer && (
               <Card>
@@ -1088,17 +1032,17 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
                         className={`p-4 border-l-4 ${urgencyColors[urgency as keyof typeof urgencyColors]} rounded-lg cursor-pointer transition-all hover:shadow-md bg-card ${selectedOffer?.property_id === offer.property_id ? 'ring-2 ring-primary' : ''}`}
                         onClick={() => setSelectedOffer(offer)}
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <div>
                             <div className="flex items-center gap-2">
-                              <h3 className="font-semibold">{offer.property_id}</h3>
-                              <Badge className={urgency === 'red' ? 'bg-red-100 text-red-700' : urgency === 'orange' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}>
-                                Day {daysSince}
-                              </Badge>
+                              <span className="font-medium text-[14px]">{offer.property_id}</span>
+                              <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${daysBg}`}>Day {daysSince}</span>
                             </div>
-                            <p className="text-sm text-muted-foreground mt-1">📧 Agent: {offer.agent_email || 'Unknown'}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">{offer.status}</span>
+                            </div>
                           </div>
-                          <Badge variant="outline" className="bg-yellow-50">⏳ {offer.status}</Badge>
+                          <span className="text-[13px] font-medium">${(offer.offer_price || 0).toLocaleString()}</span>
                         </div>
                         <div className="flex items-center justify-between mt-3">
                           <div className="flex items-center gap-4 text-sm font-medium">
@@ -1333,7 +1277,7 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
               </CardContent>
             </Card>
 
-            {/* Recent Activity - deduplicated */}
+            {/* Recent Activity - icon circles like mockup */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -1343,26 +1287,25 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {communications?.slice(0, 10).reduce((unique: any[], comm: any, idx: number) => {
-                    // Dedupe by subject + date
+                  {communications?.slice(0, 10).reduce((unique: any[], comm: any) => {
                     const dateKey = new Date(comm.created_at).toLocaleDateString()
                     const isDup = unique.find(u => u.subject === comm.subject && new Date(u.created_at).toLocaleDateString() === dateKey)
                     if (!isDup) unique.push(comm)
                     return unique
                   }, []).map((comm: any) => (
-                    <div key={comm.id} className={`p-3 border-l-4 rounded ${comm.direction === 'inbound' ? 'border-l-green-500 bg-green-50 dark:bg-green-900/20' : 'border-l-blue-500 bg-blue-50 dark:bg-blue-900/20'}`}>
-                      <div className="flex items-center justify-between mb-1">
-                        <Badge
-                          variant={comm.direction === 'inbound' ? 'default' : 'secondary'}
-                          className={comm.direction === 'inbound' ? 'bg-green-600' : 'bg-blue-600'}
-                        >
-                          {comm.direction === 'inbound' ? '📥 IN' : '📤 OUT'}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(comm.created_at).toLocaleDateString()}
-                        </span>
+                    <div key={comm.id} className="flex items-start gap-3 py-2 border-b border-border">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium flex-shrink-0 ${
+                        comm.email_type === 'ai_draft' ? 'bg-amber-100 text-amber-800' :
+                        comm.direction === 'inbound' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {comm.email_type === 'ai_draft' ? 'AI' : comm.direction === 'inbound' ? 'IN' : 'OUT'}
                       </div>
-                      <p className="text-sm truncate font-medium">{comm.subject}</p>
+                      <div>
+                        <p className="text-[13px] font-medium truncate">{comm.subject}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {comm.email_type === 'ai_draft' ? `AI draft · ${comm.to_email || ''}` : comm.direction === 'inbound' ? 'received' : 'sent'} · {new Date(comm.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>
