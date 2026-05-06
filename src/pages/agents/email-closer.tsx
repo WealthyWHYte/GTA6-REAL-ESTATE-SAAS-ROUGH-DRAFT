@@ -79,6 +79,8 @@ export default function EmailCloserPage() {
             const analysisData = fallbackData[0]
             setSelectedLevel(1)
             setSelectedOffer(analysisData)
+          } else {
+            console.log('🔄 No property_analysis found')
           }
         }
       }
@@ -116,18 +118,23 @@ export default function EmailCloserPage() {
     }
   })
 
-  // Get recent communications - filtered by account, with property data
+  // Get recent communications - filtered by account
   const { data: communications } = useQuery({
     queryKey: ['communications'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return []
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('communications')
-        .select('*, properties:property_id(address, listing_agent_email)')
+        .select('id, property_id, to_email, direction, status, subject, body, created_at')
         .eq('account_id', user?.id)
         .order('created_at', { ascending: false })
         .limit(50)
+      
+      if (error) {
+        console.error('communications query error:', error)
+        return []
+      }
       return data || []
     }
   })
@@ -138,12 +145,17 @@ export default function EmailCloserPage() {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return []
-      const { data } = await supabase
+      // Simple query - avoid complex joins causing 400
+      const { data, error } = await supabase
         .from('communications')
-        .select('*, properties:property_id(address, listing_agent_email)')
+        .select('id, property_id, to_email, subject, body, status, objection_type, created_at')
         .eq('account_id', user?.id)
         .eq('status', 'pending_approval')
-        .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('pending_approvals query error:', error)
+        return []
+      }
       return data || []
     }
   })
