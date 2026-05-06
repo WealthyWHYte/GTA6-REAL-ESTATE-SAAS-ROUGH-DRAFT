@@ -609,9 +609,9 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
                   <div key={draft.id} className="p-4 border border-yellow-500/30 rounded-lg bg-background">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <p className="font-medium">{draft.properties?.address || 'Unknown Property'}</p>
+                        <p className="font-medium">{draft.property_id || 'Unknown Property'}</p>
                         <Badge variant="outline" className="mt-1">
-                          Objection: {draft.objection_type || 'N/A'}
+                          To: {draft.to_email || 'N/A'}
                         </Badge>
                       </div>
                       <div className="flex gap-2">
