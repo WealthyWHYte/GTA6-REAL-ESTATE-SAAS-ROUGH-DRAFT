@@ -2,6 +2,241 @@
 // Comprehensive knowledge base for AI agents
 // This is embedded directly into all AI prompts
 
+// ============================================================================
+// DYNAMIC FORMULAS
+// ============================================================================
+
+/**
+ * Calculate counter-offer based on listing price, DOM, equity, and negotiation level
+ * @param askingPrice - The property's listing price
+ * @param dom - Days on market
+ * @param equityPercent - Equity percentage (estimated_value - mortgage) / estimated_value
+ * @param level - 1, 2, or 3 (negotiation level)
+ * @returns Object with offer price, down payment, monthly payment, rate, reasoning
+ */
+export function calculateCounter(
+  askingPrice: number,
+  dom: number,
+  equityPercent: number,
+  level: number = 1
+): {
+  offerPrice: number;
+  downPayment: number;
+  monthlyPayment: number;
+  rate: number;
+  reasoning: string;
+} {
+  // Base offer percentages by level
+  const levelConfig = {
+    1: { offerPct: 0.70, rate: 4, name: '70% + Terms (TARGET)' },
+    2: { offerPct: 0.70, rate: 0, name: '70% All Cash' },
+    3: { offerPct: 1.00, rate: 3, name: '100% Full Price' }
+  }
+  
+  const config = levelConfig[level as keyof typeof levelConfig] || levelConfig[1]
+  
+  // DOM urgency adjustment: +1% to offer for every 30 days on market (max +10%)
+  const domAdjustment = Math.min(Math.floor(dom / 30) * 0.01, 0.10)
+  
+  // Equity bonus: if equity > 50%, seller is more flexible - adjust down by 2%
+  const equityBonus = equityPercent > 50 ? -0.02 : 0
+  
+  // Calculate final offer percentage
+  const finalOfferPct = Math.max(config.offerPct + domAdjustment + equityBonus, 0.60)
+  
+  const offerPrice = Math.round(askingPrice * finalOfferPct)
+  
+  // Down payment: 3% for level 1, 10% for level 3
+  const downPaymentPct = level === 3 ? 0.03 : 0.03
+  const downPayment = Math.round(offerPrice * downPaymentPct)
+  
+  // Monthly payment calculation (seller finance portion)
+  const sellerFinanceAmount = offerPrice - (askingPrice * 0.40) // Assume 40% existing mortgage
+  const monthlyPayment = Math.round(
+    (sellerFinanceAmount * (config.rate / 100 / 12)) / 
+    (1 - Math.pow(1 + config.rate / 100 / 12, -360))
+  )
+  
+  return {
+    offerPrice,
+    downPayment,
+    monthlyPayment: isNaN(monthlyPayment) ? 0 : monthlyPayment,
+    rate: config.rate,
+    reasoning: `${config.name}: ${(finalOfferPct * 100).toFixed(0)}% of asking (${(domAdjustment * 100).toFixed(0)}% DOM + ${(equityBonus * 100).toFixed(0)}% equity)`
+  }
+}
+
+/**
+ * Calculate DOM urgency score (0-30 pts)
+ * Higher DOM = more motivated seller
+ * @param dom - Days on market
+ * @returns Score 0-30
+ */
+export function domUrgencyScore(dom: number): number {
+  if (dom < 14) return 0
+  if (dom < 30) return 5
+  if (dom < 60) return 10
+  if (dom < 90) return 15
+  if (dom < 180) return 20
+  return 30
+}
+
+/**
+ * Calculate estimated carrying costs per day
+ * @param askingPrice - Property listing price
+ * @returns Estimated daily carrying cost
+ */
+export function carryingCostPerDay(askingPrice: number): number {
+  // Rough estimate: 1% annually / 365 = ~0.0044% per day
+  // Includes: property tax (1.1%), insurance (0.5%), maintenance (0.5%), HOA if applicable
+  const annualRate = 0.02 // 2% of value per year
+  return Math.round((askingPrice * annualRate) / 365)
+}
+
+/**
+ * Calculate seller's net benefit over time with creative finance vs traditional sale
+ * @param askingPrice - Listing price
+ * @param offerPrice - Our offer price
+ * @param terms - 'subject-to' | 'seller-finance' | 'hybrid'
+ * @param mortgageBalance - Existing mortgage balance (if any)
+ * @returns Object with net benefit analysis
+ */
+export function sellerNetBenefit(
+  askingPrice: number,
+  offerPrice: number,
+  terms: string,
+  mortgageBalance: number = 0
+): {
+  upfrontCash: number;
+  monthlyIncome: number;
+  total5YearBenefit: number;
+  traditionalSaleNet: number;
+  advantage: number;
+  summary: string;
+} {
+  // Traditional sale: 6% commission, closing costs ~2%, net = asking * 0.92 - mortgage
+  const traditionalNet = Math.max(askingPrice * 0.92 - mortgageBalance, 0)
+  
+  // Creative sale net
+  const upfrontCash = offerPrice - mortgageBalance
+  const monthlyIncome = terms === 'seller-finance' || terms === 'hybrid'
+    ? offerPrice * 0.04 / 12 // 4% seller financing
+    : 0
+  
+  const fiveYearBenefit = upfrontCash + (monthlyIncome * 60) // 5 years of payments
+  
+  return {
+    upfrontCash: Math.round(upfrontCash),
+    monthlyIncome: Math.round(monthlyIncome),
+    total5YearBenefit: Math.round(fiveYearBenefit),
+    traditionalSaleNet: Math.round(traditionalNet),
+    advantage: Math.round(fiveYearBenefit - traditionalNet),
+    summary: `Creative finance gives seller ${Math.round(monthlyIncome) > 0 ? `${Math.round(monthlyIncome).toLocaleString()}/mo income` : 'faster close'} vs traditional`
+  }
+}
+
+// ============================================================================
+// EXPANDED OBJECTION HANDLERS
+// ============================================================================
+
+export const OBJECTION_HANDLERS: Record<string, {
+  keywords: string[];
+  response: string;
+  structure: string;
+  formula: string;
+  tone: string;
+}> = {
+  price_too_low: {
+    keywords: ['too low', 'low ball', 'insulting', 'offensive', 'not serious', 'not fair', 'more money', 'can you go higher', 'increase your offer'],
+    response: 'I understand the price matters. Let me show you the math on our offer and what you actually net...',
+    structure: 'Counter with DOM urgency + equity math + monthly payment comparison to renting',
+    formula: 'calculateCounter(askingPrice, dom, equityPercent, 1) + carryingCostPerDay() comparison',
+    tone: 'confident, numeric, empathetic'
+  },
+  already_have_offers: {
+    keywords: ['other offer', 'multiple offers', 'have an offer', 'another buyer', 'competing offer', 'others interested'],
+    response: 'Multiple offers is great — it shows the market is active. Here is what makes our offer different...',
+    structure: 'Reframe with speed, certainty, no contingencies, we close faster',
+    formula: 'domUrgencyScore(dom) + sellerNetBenefit() showing faster close value',
+    tone: 'respectful, differentiating, confident'
+  },
+  need_to_think: {
+    keywords: ['need to think', 'need to discuss', 'talk to my', 'let me think', 'consider', 'not ready', 'need time', 'family'],
+    response: 'I get it — this is a big decision. Let me share some numbers that might help...',
+    structure: 'Create urgency with market data, carrying costs per day, opportunity cost',
+    formula: 'carryingCostPerDay() * days waiting = money lost',
+    tone: 'supportive, informative, patient'
+  },
+  working_with_another: {
+    keywords: ['working with', 'already working', 'with another', 'agent', 'realtor', 'broker'],
+    response: 'I appreciate you letting me know. If your current deal falls through, I want to be your backup plan...',
+    structure: 'Ask what is missing from their offer, position creative terms as superior',
+    formula: 'sellerNetBenefit() showing flexible terms advantage',
+    tone: 'professional, understanding, leave door open'
+  },
+  want_full_price: {
+    keywords: ['full price', 'asking price', 'not negotiating', 'won\'t budge', 'price is firm', 'firm price'],
+    response: 'You want maximum value — I want a win-win. Let me show you what 100% looks like with our terms...',
+    structure: 'Offer full price with seller finance terms (Level 3), show net benefit over time',
+    formula: 'calculateCounter(askingPrice, dom, equityPercent, 3) + sellerNetBenefit()',
+    tone: 'accommodating, numeric, long-term focused'
+  },
+  financing_concern: {
+    keywords: ['financing', 'can you qualify', 'how will you pay', 'loan', 'mortgage', 'credit'],
+    response: 'Great question about financing. Let me explain exactly how our process works...',
+    structure: 'Explain subject-to protects their credit, we take over payments, no new loan needed',
+    formula: 'Explain: we assume existing loan + pay difference = no new credit check',
+    tone: 'educational, reassuring, transparent'
+  },
+  wrong_timing: {
+    keywords: ['timing', 'not the right time', 'too early', 'too late', 'waiting', 'future', 'later'],
+    response: 'Timing is personal. I understand — let me keep you in the loop on market changes...',
+    structure: 'Open-ended follow up, set a future date, keep door open',
+    formula: 'Schedule follow-up in 30/60/90 days',
+    tone: 'respectful, understanding, long-term relationship'
+  },
+  property_condition: {
+    keywords: ['condition', 'repairs', 'fix', 'renovate', 'needs work', 'as-is', 'nothing wrong with'],
+    response: 'I see the property as-is. Let me adjust our numbers to account for that...',
+    structure: 'Adjust offer, offer as-is close, account for repairs in numbers',
+    formula: 'Offer = (ARV - repairs) with same terms',
+    tone: 'practical, straightforward, solutions-focused'
+  },
+  multiple_offers_situation: {
+    keywords: ['best offer', 'escalate', 'best and final', 'highest offer'],
+    response: 'I understand you have choices. Here is what I can do to make this easy...',
+    structure: 'Escalation clause, proof of funds, fastest close, no contingencies',
+    formula: 'Show proof of funds + 7-day close option',
+    tone: 'competitive, confident, decisive'
+  },
+  ghosting_no_response: {
+    keywords: ['haven\'t heard', 'no response', 'ghost', 'disappeared', 'can\'t reach'],
+    response: 'I noticed we have not connected — I wanted to reach out one more time...',
+    structure: 'Pattern interrupt subject line, short curiosity email, low-pressure ask',
+    formula: 'Short email (<100 words) with new angle or question',
+    tone: 'curious, brief, not desperate'
+  }
+}
+
+/**
+ * Detect objection type from email text
+ * @param emailBody - The inbound email body text
+ * @returns The detected objection type key or 'unknown'
+ */
+export function detectObjectionType(emailBody: string): string {
+  const lowerBody = emailBody.toLowerCase()
+  
+  for (const [type, handler] of Object.entries(OBJECTION_HANDLERS)) {
+    for (const keyword of handler.keywords) {
+      if (lowerBody.includes(keyword)) {
+        return type
+      }
+    }
+  }
+  
+  return 'general_inquiry'
+}
+
 export const KNOWLEDGE_BASE = {
   // YOUR COMPETITIVE ADVANTAGE - vs Traditional Banks
   yourTerms: {

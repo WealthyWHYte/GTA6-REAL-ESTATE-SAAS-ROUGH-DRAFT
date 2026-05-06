@@ -205,7 +205,9 @@ serve(async (req) => {
           await supabase
             .from("user_api_config")
             .update({
+              gmail_access_token: tokens.access_token,
               gmail_refresh_token: tokens.refresh_token,
+              gmail_token_expiry: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
               gmail_email: gmailAddress,
               gmail_status: "connected",
               gmail_connected_at: new Date().toISOString()
@@ -217,7 +219,9 @@ serve(async (req) => {
             .from("user_api_config")
             .insert({
               account_id: accountId,
+              gmail_access_token: tokens.access_token,
               gmail_refresh_token: tokens.refresh_token,
+              gmail_token_expiry: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
               gmail_email: gmailAddress,
               gmail_status: "connected",
               gmail_connected_at: new Date().toISOString()
@@ -246,7 +250,9 @@ serve(async (req) => {
       await supabase
         .from("user_api_config")
         .update({
+          gmail_access_token: null,
           gmail_refresh_token: null,
+          gmail_token_expiry: null,
           gmail_email: null,
           gmail_status: "disconnected",
           gmail_connected_at: null

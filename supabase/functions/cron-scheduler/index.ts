@@ -100,16 +100,24 @@ serve(async (req) => {
     let usersWithGmail: any[] = []
     
     if (userId) {
-      usersWithGmail = [{ id: userId }]
+      usersWithGmail = [{ account_id: userId }]
     } else {
+      // Debug: first check what's in the table
+      const { data: allConfig, error: debugError } = await supabase
+        .from('user_api_config')
+        .select('account_id, gmail_status, gmail_refresh_token')
+      
+      console.log('📊 All user_api_config records:', JSON.stringify(allConfig))
+      console.log('📊 Debug error:', debugError)
+      
       const { data, error: gmailError } = await supabase
-        .from('user_accounts')
+        .from('user_api_config')
         .select('account_id')
-        .eq('provider', 'gmail')
-        .neq('access_token', null)
+        .eq('gmail_status', 'connected')
+        .not('gmail_refresh_token', 'is', null)
       
       if (gmailError) {
-        console.log('❌ user_accounts query error:', gmailError.message)
+        console.log('❌ user_api_config query error:', gmailError.message)
         console.log('Full error:', JSON.stringify(gmailError))
       }
       
@@ -125,25 +133,44 @@ serve(async (req) => {
       
       // Get Gmail token for this user
       const { data: account } = await supabase
-        .from('user_accounts')
+        .from('user_api_config')
         .select('*')
         .eq('account_id', accountId)
-        .eq('provider', 'gmail')
+        .eq('gmail_status', 'connected')
         .single()
 
-      if (!account?.access_token) {
+      if (!account?.gmail_refresh_token) {
         console.log(`⚠️ No Gmail token for user ${accountId}`)
         continue
       }
 
-      // Get last check time
-      const lastCheck = account.last_sync || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      const lastCheck = account.gmail_connected_at || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      
+      // Use refresh token to get access token
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: Deno.env.get('GMAIL_CLIENT_ID')!,
+          client_secret: Deno.env.get('GMAIL_CLIENT_SECRET')!,
+          refresh_token: account.gmail_refresh_token,
+          grant_type: 'refresh_token'
+        })
+      })
+      
+      if (!tokenResponse.ok) {
+        console.log('❌ Failed to refresh Gmail token')
+        continue
+      }
+      
+      const tokens = await tokenResponse.json()
+      const accessToken = tokens.access_token
 
       // Fetch recent emails from Gmail
       const gmailResponse = await fetch(
         'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10&q=subject:(offer OR purchase OR creative OR financing OR real estate)&',
         {
-          headers: { 'Authorization': `Bearer ${account.access_token}` }
+          headers: { 'Authorization': `Bearer ${accessToken}` }
         }
       )
 
@@ -159,7 +186,7 @@ serve(async (req) => {
         // Get full message
         const msgDetail = await fetch(
           `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`,
-          { headers: { 'Authorization': `Bearer ${account.access_token}` } }
+          { headers: { 'Authorization': `Bearer ${accessToken}` } }
         )
 
         if (!msgDetail.ok) continue
@@ -225,10 +252,9 @@ serve(async (req) => {
 
       // Update last sync time
       await supabase
-        .from('user_accounts')
-        .update({ last_sync: new Date().toISOString() })
+        .from('user_api_config')
+        .update({ gmail_connected_at: new Date().toISOString() })
         .eq('account_id', accountId)
-        .eq('provider', 'gmail')
 
       processedCount++
     }
