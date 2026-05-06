@@ -79,7 +79,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
-    
+
+    let draftsCreated = 0
+
     console.log('📡 Supabase client created, querying user_api_config...')
 
     const authClient = createClient(
