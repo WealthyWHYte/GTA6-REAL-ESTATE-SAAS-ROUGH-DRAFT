@@ -74,10 +74,13 @@ serve(async (req) => {
   }
 
   try {
+    console.log('🔄 Cron started, using service role key')
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
+    
+    console.log('📡 Supabase client created, querying user_api_config...')
 
     const authClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -105,16 +108,16 @@ serve(async (req) => {
       // Debug: first check what's in the table
       const { data: allConfig, error: debugError } = await supabase
         .from('user_api_config')
-        .select('account_id, gmail_status, gmail_refresh_token')
+        .select('account_id, gmail_status, gmail_email')
       
       console.log('📊 All user_api_config records:', JSON.stringify(allConfig))
       console.log('📊 Debug error:', debugError)
       
+      // FIX: Simpler query - just check status (don't require refresh token column to exist)
       const { data, error: gmailError } = await supabase
         .from('user_api_config')
         .select('account_id')
         .eq('gmail_status', 'connected')
-        .not('gmail_refresh_token', 'is', null)
       
       if (gmailError) {
         console.log('❌ user_api_config query error:', gmailError.message)
@@ -139,7 +142,7 @@ serve(async (req) => {
         .eq('gmail_status', 'connected')
         .single()
 
-      if (!account?.gmail_refresh_token) {
+      if (!account?.gmail_refresh_token && !account?.gmail_access_token) {
         console.log(`⚠️ No Gmail token for user ${accountId}`)
         continue
       }
