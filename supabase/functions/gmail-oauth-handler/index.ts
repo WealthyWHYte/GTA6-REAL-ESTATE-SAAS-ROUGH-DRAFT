@@ -177,28 +177,47 @@ serve(async (req) => {
       }
 
       // Decode state to get account_id
+      // FIX: Double URL-encode fix
       let accountId = ""
       try {
-        const stateObj = JSON.parse(decodeURIComponent(state || "{}"))
+        const stateStr = decodeURIComponent(decodeURIComponent(state || '{}'))
+        console.log('Parsed state:', stateStr)
+        const stateObj = JSON.parse(stateStr)
         accountId = stateObj.account_id
+        console.log('account_id from state:', accountId)
       } catch (e) {
-        console.error("Failed to parse state:", e)
+        console.error("Failed to parse state:", e, "raw state:", state)
       }
 
       // Exchange code for tokens
+      console.log('Exchanging code for tokens, accountId:', accountId)
       const tokens = await exchangeCodeForTokens(code)
       
       // Get user's Gmail address
       const gmailAddress = await getGmailAddress(tokens.access_token)
-
+      console.log('Got Gmail address:', gmailAddress)
+      
       // If we have account_id, save to database
       if (accountId) {
+        console.log('Saving to user_api_config for account_id:', accountId)
+        
         // Check if config exists
         const { data: existing } = await supabase
           .from("user_api_config")
           .select("account_id")
           .eq("account_id", accountId)
           .single()
+
+        const insertData = {
+          account_id: accountId,
+          gmail_access_token: tokens.access_token,
+          gmail_refresh_token: tokens.refresh_token,
+          gmail_token_expiry: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+          gmail_email: gmailAddress,
+          gmail_status: "connected",
+          gmail_connected_at: new Date().toISOString()
+        }
+        console.log('Insert data:', JSON.stringify(insertData))
 
         if (existing) {
           // Update existing
