@@ -195,6 +195,9 @@ serve(async (req) => {
     }
 
     // Log to communications table (accepts either format)
+    const messageId = await sendGmail(fromEmail, recipient_email, recipient_name || '', subject, body, userCreds)
+    const msgId = typeof messageId === 'string' ? messageId : Date.now().toString()
+    
     await supabase.from('communications').insert({
       account_id: user.id,
       property_id: property_id || null,
@@ -204,7 +207,7 @@ serve(async (req) => {
       message: body,
       direction: 'outgoing',
       status: 'sent',
-      gmail_message_id: messageId,
+      gmail_message_id: msgId,
       sent_at: new Date().toISOString()
     })
 
