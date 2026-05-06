@@ -204,44 +204,20 @@ serve(async (req) => {
       // If we have account_id, save to database
       if (accountId) {
         console.log('Saving to user_api_config for account_id:', accountId)
-        
-        // Check if config exists
-        const { data: existing } = await supabase
-          .from("user_api_config")
-          .select("account_id")
-          .eq("account_id", accountId)
-          .single()
 
-        // Insert/update using EXISTING columns in user_api_config
-        // Using gmail_email and gmail_app_password as temp storage for OAuth tokens
-        const insertData = {
+        // Upsert using proper columns (gmail_refresh_token)
+        const { data, error } = await supabase.from('user_api_config').upsert({
           account_id: accountId,
           gmail_email: gmailAddress,
-          gmail_app_password: tokens.refresh_token  // Store refresh token here temporarily
-        }
-        console.log('Saving using existing columns:', JSON.stringify(insertData))
+          gmail_refresh_token: tokens.refresh_token
+        }, { onConflict: 'account_id' })
+        console.log('Upsert result:', JSON.stringify(data), 'Error:', JSON.stringify(error))
 
-        if (existing) {
-          // Update existing - only use existing columns
-          await supabase
-            .from("user_api_config")
-            .update({
-              gmail_email: gmailAddress,
-              gmail_app_password: tokens.refresh_token
-            })
-            .eq("account_id", accountId)
+        if (error) {
+          console.error('❌ Upsert error:', error.message, 'Full:', JSON.stringify(error))
         } else {
-          // Insert new - only use existing columns
-          await supabase
-            .from("user_api_config")
-            .insert({
-              account_id: accountId,
-              gmail_email: gmailAddress,
-              gmail_app_password: tokens.refresh_token
-            })
+          console.log('✅ Gmail OAuth saved to gmail_refresh_token column!')
         }
-        
-        console.log('✅ Gmail OAuth saved successfully!')
       }
 
       // Show success page

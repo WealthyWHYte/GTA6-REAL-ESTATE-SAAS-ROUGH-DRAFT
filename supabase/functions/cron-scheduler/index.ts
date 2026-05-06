@@ -97,80 +97,65 @@ serve(async (req) => {
       // If no auth, we'll scan all users' gmail accounts
     }
 
-    console.log('🔄 Cron scheduler running - checking for Gmail replies...')
+    console.log('🔄 Cron scheduler running - checking for Gmail replies for goldenwaffle86@gmail.com')
 
-    // Get all users with Gmail connected (if no user specified)
-    let usersWithGmail: any[] = []
-    
-    if (userId) {
-      usersWithGmail = [{ account_id: userId }]
+    // Target specific account_id directly
+    const TARGET_ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
+
+    // Get Gmail token for this account
+    // First try DB, then fallback to env var
+    let refreshToken = ''
+
+    const { data: account, error: fetchError } = await supabase
+      .from('user_api_config')
+      .select('gmail_refresh_token, gmail_access_token, gmail_email')
+      .eq('account_id', TARGET_ACCOUNT_ID)
+      .single()
+
+    console.log('Fetched account config:', JSON.stringify(account), 'Error:', fetchError)
+
+    if (account?.gmail_refresh_token) {
+      refreshToken = account.gmail_refresh_token
+      console.log('✅ Using Gmail refresh token from DB for', account?.gmail_email)
     } else {
-      // Debug: first check what's in the table
-      const { data: allConfig, error: debugError } = await supabase
-        .from('user_api_config')
-        .select('account_id, gmail_status, gmail_email')
-      
-      console.log('📊 All user_api_config records:', JSON.stringify(allConfig))
-      console.log('📊 Debug error:', debugError)
-      
-      // FIX: Simpler query - check gmail_app_password (stores refresh token)
-      const { data, error: gmailError } = await supabase
-        .from('user_api_config')
-        .select('account_id')
-        .not('gmail_app_password', 'is', null)
-        .neq('gmail_app_password', '')
-      
-      if (gmailError) {
-        console.log('❌ user_api_config query error:', gmailError.message)
-        console.log('Full error:', JSON.stringify(gmailError))
-      }
-      
-      usersWithGmail = Array.isArray(data) ? data : []
-      console.log('📬 Found', usersWithGmail.length, 'users with Gmail')
+      // Fallback to env var
+      refreshToken = Deno.env.get('GMAIL_REFRESH_TOKEN') || ''
+      console.log('⚠️ No DB token, trying env var GMAIL_REFRESH_TOKEN')
     }
 
-    let processedCount = 0
-    let draftsCreated = 0
-
-    for (const user of usersWithGmail) {
-      const accountId = user.account_id
-      
-      // Get Gmail token for this user (now stored in gmail_app_password)
-      const { data: account } = await supabase
-        .from('user_api_config')
-        .select('*, gmail_app_password')
-        .eq('account_id', accountId)
-        .not('gmail_app_password', 'is', null)
-        .single()
-
-      if (!account?.gmail_refresh_token && !account?.gmail_access_token) {
-        console.log(`⚠️ No Gmail token for user ${accountId}`)
-        continue
-      }
-
-      const lastCheck = account.gmail_connected_at || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      
-      // Use refresh token to get access token
-      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: Deno.env.get('GMAIL_CLIENT_ID')!,
-          client_secret: Deno.env.get('GMAIL_CLIENT_SECRET')!,
-          refresh_token: account.gmail_refresh_token,
-          grant_type: 'refresh_token'
-        })
+    if (!refreshToken) {
+      console.log('❌ No Gmail refresh token found (DB or env)')
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No Gmail token configured'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
-      
-      if (!tokenResponse.ok) {
-        console.log('❌ Failed to refresh Gmail token')
-        continue
-      }
-      
-      const tokens = await tokenResponse.json()
-      const accessToken = tokens.access_token
+    }
 
-      // Fetch recent emails from Gmail
+    // Use refresh token to get access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: Deno.env.get('GMAIL_CLIENT_ID')!,
+        client_secret: Deno.env.get('GMAIL_CLIENT_SECRET')!,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token'
+      })
+    })
+
+    if (!tokenResponse.ok) {
+      console.log('❌ Failed to refresh Gmail token')
+      return new Response(JSON.stringify({ success: false, error: 'Token refresh failed' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    const tokens = await tokenResponse.json()
+    const accessToken = tokens.access_token || account?.gmail_access_token
+
+    console.log('✅ Got access token, checking Gmail for', account?.gmail_email)
       const gmailResponse = await fetch(
         'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10&q=subject:(offer OR purchase OR creative OR financing OR real estate)&',
         {
@@ -179,7 +164,7 @@ serve(async (req) => {
       )
 
       if (!gmailResponse.ok) {
-        console.log(`⚠️ Gmail API error for user ${accountId}: ${gmailResponse.status}`)
+        console.log(`⚠️ Gmail API error: ${gmailResponse.status}`)
         continue
       }
 
@@ -235,7 +220,7 @@ serve(async (req) => {
 
         // Store as pending approval
         await supabase.from('communications').insert({
-          account_id: accountId,
+          account_id: TARGET_ACCOUNT_ID,
           property_id: null, // Would need to match by email
           direction: 'outbound',
           subject: draft.subject,
@@ -258,15 +243,11 @@ serve(async (req) => {
       await supabase
         .from('user_api_config')
         .update({ gmail_connected_at: new Date().toISOString() })
-        .eq('account_id', accountId)
-
-      processedCount++
-    }
+        .eq('account_id', TARGET_ACCOUNT_ID)
 
     return new Response(JSON.stringify({
       success: true,
-      message: `Processed ${processedCount} users, created ${draftsCreated} drafts`,
-      usersProcessed: processedCount,
+      message: `Checked Gmail for goldenwaffle86@gmail.com, created ${draftsCreated} drafts`,
       draftsCreated
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
