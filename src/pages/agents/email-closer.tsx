@@ -155,13 +155,12 @@ export default function EmailCloserPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return []
       
-      const now = new Date().toISOString()
+      // Simple query - no date filters to avoid URL encoding issues
       const { data } = await supabase
         .from('follow_up_queue')
         .select('*, properties:property_id(address, agent_email, agent_name)')
         .eq('status', 'pending')
-        .lte('scheduled_for', now)
-      return (data || []).sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())
+      return (data || []).filter(item => new Date(item.scheduled_for) <= new Date()).sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())
     }
   })
 
