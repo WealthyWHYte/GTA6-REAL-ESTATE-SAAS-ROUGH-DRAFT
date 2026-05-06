@@ -194,9 +194,25 @@ serve(async (req) => {
       }
     }
 
-    // Log to communications table (accepts either format)
+    // Log to communications table - check for duplicates first
     const messageId = await sendGmail(fromEmail, recipient_email, recipient_name || '', subject, body, userCreds)
     const msgId = typeof messageId === 'string' ? messageId : Date.now().toString()
+    
+    // Check if already sent recently (prevent duplicates)
+    const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString()
+    const { data: existingComm } = await supabase
+      .from('communications')
+      .select('id')
+      .eq('account_id', user.id)
+      .eq('subject', subject)
+      .eq('to_email', recipient_email)
+      .gte('created_at', sixtySecondsAgo)
+      .single()
+    
+    if (existingComm) {
+      console.log('⏭ Duplicate detected, skipping insert')
+      return msgId // Return early
+    }
     
     await supabase.from('communications').insert({
       account_id: user.id,
@@ -204,11 +220,12 @@ serve(async (req) => {
       to_email: recipient_email,
       to_name: recipient_name || '',
       subject,
-      message: body,
-      direction: 'outgoing',
+      body,
+      direction: 'outbound',
       status: 'sent',
+      email_type: 'sent',
       gmail_message_id: msgId,
-      sent_at: new Date().toISOString()
+      created_at: new Date().toISOString()
     })
 
     // MARK PROPERTY AS CONTACTED - this removes it from Underwriter queue automatically

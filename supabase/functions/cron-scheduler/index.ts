@@ -253,21 +253,19 @@ serve(async (req) => {
         
         const draft = generateResponseDraft('Property', objectionType, sellerName)
 
-        // Store as pending approval
+        // Store as pending approval (match actual schema columns)
         await supabase.from('communications').insert({
           account_id: TARGET_ACCOUNT_ID,
-          property_id: null, // Would need to match by email
-          direction: 'outbound',
-          subject: draft.subject,
-          message: draft.body,
-          email_type: `draft_${objectionType}`,
-          status: 'pending_approval',
-          gmail_thread_id: msgData.threadId,
-          gmail_message_id: msg.id,
+          property_id: null,
           to_email: from.match(/<([^>]+)>/)?.[1] || from,
           to_name: sellerName,
-          created_at: new Date().toISOString(),
-          notes: `AI Draft - ${objectionType} detected from cron-scheduler`
+          subject: draft.subject,
+          body: draft.body,
+          email_type: `ai_draft`,
+          direction: 'outbound',
+          status: 'pending_approval',
+          gmail_message_id: msg.id,
+          created_at: new Date().toISOString()
         })
 
         draftsCreated++
