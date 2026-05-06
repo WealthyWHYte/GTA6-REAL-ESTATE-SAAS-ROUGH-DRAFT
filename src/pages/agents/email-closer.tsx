@@ -148,9 +148,10 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
     queryFn: async () => {
       const { data, error } = await supabase
         .from('communications')
-        .select('id, property_id, to_email, subject, body, status, objection_type, created_at')
+        .select('id, property_id, to_email, to_name, subject, body, status, email_type, created_at')
         .eq('account_id', ACCOUNT_ID)
         .eq('status', 'pending_approval')
+        .eq('email_type', 'ai_draft')
       console.log('📬 pending_approvals result:', { data, error })
       if (error) return []
       return data || []
@@ -609,9 +610,9 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
                   <div key={draft.id} className="p-4 border border-yellow-500/30 rounded-lg bg-background">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <p className="font-medium">{draft.property_id || 'Unknown Property'}</p>
+                        <p className="font-medium">To: {draft.to_email}</p>
                         <Badge variant="outline" className="mt-1">
-                          To: {draft.to_email || 'N/A'}
+                          {draft.subject}
                         </Badge>
                       </div>
                       <div className="flex gap-2">
