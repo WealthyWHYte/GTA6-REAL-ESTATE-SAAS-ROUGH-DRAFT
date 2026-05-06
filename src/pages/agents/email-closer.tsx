@@ -151,7 +151,6 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
         .select('id, property_id, to_email, to_name, subject, body, status, email_type, created_at')
         .eq('account_id', ACCOUNT_ID)
         .eq('status', 'pending_approval')
-        .eq('email_type', 'ai_draft')
       console.log('📬 pending_approvals result:', { data, error })
       if (error) return []
       return data || []
@@ -553,12 +552,13 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <Card>
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          {/* Pending Response - Orange */}
+          <Card className="border-l-4 border-l-orange-500 shadow-lg">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-yellow-500/10 rounded-lg">
-                  <Clock className="w-6 h-6 text-yellow-500" />
+                <div className="p-3 bg-orange-500/10 rounded-lg">
+                  <Clock className="w-6 h-6 text-orange-500" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.pending}</p>
@@ -567,11 +567,12 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
               </div>
             </CardContent>
           </Card>
-          <Card>
+          {/* Due for Follow-up - Yellow */}
+          <Card className="border-l-4 border-l-yellow-500 shadow-lg">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-500/10 rounded-lg">
-                  <History className="w-6 h-6 text-blue-500" />
+                <div className="p-3 bg-yellow-500/10 rounded-lg">
+                  <History className="w-6 h-6 text-yellow-500" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.followUps}</p>
@@ -580,7 +581,8 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
               </div>
             </CardContent>
           </Card>
-          <Card>
+          {/* Replies Received - Green */}
+          <Card className="border-l-4 border-l-green-500 shadow-lg">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-green-500/10 rounded-lg">
@@ -593,26 +595,43 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
               </div>
             </CardContent>
           </Card>
+          {/* Pending Approval - Blue */}
+          <Card className="border-l-4 border-l-blue-500 shadow-lg">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-500/10 rounded-lg">
+                  <CheckCircle className="w-6 h-6 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{pendingApprovals?.length || 0}</p>
+                  <p className="text-sm text-muted-foreground">Pending Approval</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Pending Approval Section */}
+        {/* Pending Approval Section - Gold/Yellow */}
         {pendingApprovals && pendingApprovals.length > 0 && (
-          <Card className="border-yellow-500/50 bg-yellow-500/5">
+          <Card className="border-2 border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 mb-6 shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-yellow-600">
+              <CardTitle className="flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
                 <Clock className="w-5 h-5" />
-                Pending Approval ({pendingApprovals.length})
+                ⏳ Pending Approval ({pendingApprovals.length})
               </CardTitle>
+              <CardDescription>
+                AI-generated responses awaiting your approval
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {pendingApprovals.map((draft: any) => (
-                  <div key={draft.id} className="p-4 border border-yellow-500/30 rounded-lg bg-background">
-                    <div className="flex items-start justify-between mb-2">
+                  <div key={draft.id} className="p-4 border-2 border-yellow-300 rounded-lg bg-white dark:bg-gray-900 shadow-md">
+                    <div className="flex items-start justify-between mb-3">
                       <div>
-                        <p className="font-medium">To: {draft.to_email}</p>
-                        <Badge variant="outline" className="mt-1">
-                          {draft.subject}
+                        <p className="font-semibold text-lg">📧 To: {draft.to_email}</p>
+                        <Badge variant="outline" className="mt-2 bg-yellow-100 text-yellow-800 border-yellow-300">
+                          📝 {draft.subject || 'AI Draft Response'}
                         </Badge>
                       </div>
                       <div className="flex gap-2">
@@ -620,6 +639,7 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
                           size="sm"
                           onClick={() => approveDraftMutation.mutate(draft)}
                           disabled={approveDraftMutation.isPending}
+                          className="bg-green-600 hover:bg-green-700"
                         >
                           {approveDraftMutation.isPending ? 'Sending...' : '✅ Approve & Send'}
                         </Button>
@@ -627,13 +647,14 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
                           size="sm"
                           variant="outline"
                           onClick={() => discardDraftMutation.mutate(draft)}
+                          className="text-red-600 border-red-300 hover:bg-red-50"
                         >
-                          Discard
+                          🗑️ Discard
                         </Button>
                       </div>
                     </div>
-                    <div className="p-3 bg-muted/50 rounded text-sm mt-2">
-                      <p className="text-muted-foreground line-clamp-3">{draft.body}</p>
+                    <div className="p-3 bg-muted/50 rounded text-sm border-l-4 border-yellow-400">
+                      <p className="text-foreground line-clamp-4">{draft.body}</p>
                     </div>
                   </div>
                 ))}
@@ -1046,60 +1067,51 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
               </Card>
             )}
 
-            {/* Pending Offers */}
+            {/* Pending Offers - with urgency borders */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Mail className="w-5 h-5" />
-                  Offers Awaiting Response
+                  📬 Offers Awaiting Response ({pendingOffers?.length || 0})
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {pendingOffers?.map((offer: any) => (
-                    <div
-                      key={offer.id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors
-                        ${selectedOffer?.property_id === offer.property_id
-                          ? 'border-primary bg-primary/5'
-                          : 'hover:bg-muted/50'}`}
-                      onClick={() => setSelectedOffer(offer)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-medium">{offer.properties?.address}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Agent: {offer.properties?.agent_name || offer.properties?.agent_email}
-                          </p>
+                <div className="space-y-3">
+                  {pendingOffers?.map((offer: any) => {
+                    const sentDate = offer.sent_at ? new Date(offer.sent_at) : null
+                    const daysSince = sentDate ? Math.floor((Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24)) : 0
+                    const urgency = daysSince >= 14 ? 'red' : daysSince >= 7 ? 'orange' : 'green'
+                    const urgencyColors = { red: 'border-l-red-500', orange: 'border-l-orange-500', green: 'border-l-green-500' }
+                    return (
+                      <div
+                        key={offer.id}
+                        className={`p-4 border-l-4 ${urgencyColors[urgency as keyof typeof urgencyColors]} rounded-lg cursor-pointer transition-all hover:shadow-md bg-card ${selectedOffer?.property_id === offer.property_id ? 'ring-2 ring-primary' : ''}`}
+                        onClick={() => setSelectedOffer(offer)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold">{offer.property_id}</h3>
+                              <Badge className={urgency === 'red' ? 'bg-red-100 text-red-700' : urgency === 'orange' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}>
+                                Day {daysSince}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">📧 Agent: {offer.agent_email || 'Unknown'}</p>
+                          </div>
+                          <Badge variant="outline" className="bg-yellow-50">⏳ {offer.status}</Badge>
                         </div>
-                        <Badge
-                          variant={
-                            offer.status === 'pending_response' ? 'secondary' :
-                            offer.status === 'sent' ? 'outline' : 'default'
-                          }
-                        >
-                          {offer.status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center gap-4 text-sm">
-                          <span>Offer: ${offer.offer_price?.toLocaleString()}</span>
-                          <span>Sent: {offer.sent_at ? new Date(offer.sent_at).toLocaleDateString() : 'N/A'}</span>
+                        <div className="flex items-center justify-between mt-3">
+                          <div className="flex items-center gap-4 text-sm font-medium">
+                            <span className="text-lg">💰 Offer: ${(offer.offer_price || 0).toLocaleString()}</span>
+                            <span className="text-muted-foreground">📅 {sentDate ? sentDate.toLocaleDateString() : 'N/A'}</span>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); snoozeOfferMutation.mutate(offer) }} disabled={snoozeOfferMutation.isPending}>
+                            {snoozeOfferMutation.isPending ? '⏳' : '⏰'} Snooze
+                          </Button>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            snoozeOfferMutation.mutate(offer)
-                          }}
-                          disabled={snoozeOfferMutation.isPending}
-                        >
-                          {snoozeOfferMutation.isPending ? '⏳' : '⏰'} Snooze 7 days
-                        </Button>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                   {(!pendingOffers || pendingOffers.length === 0) && (
                     <div className="text-center py-12 text-muted-foreground">
                       <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -1321,24 +1333,28 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
               </CardContent>
             </Card>
 
-            {/* Recent Activity */}
+            {/* Recent Activity - deduplicated */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <History className="w-5 h-5" />
-                  Recent Activity
+                  📊 Recent Activity
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {communications?.slice(0, 10).map((comm: any) => (
-                    <div key={comm.id} className="p-3 border rounded">
+                <div className="space-y-2">
+                  {communications?.slice(0, 10).reduce((unique: any[], comm: any, idx: number) => {
+                    // Dedupe by subject + date
+                    const dateKey = new Date(comm.created_at).toLocaleDateString()
+                    const isDup = unique.find(u => u.subject === comm.subject && new Date(u.created_at).toLocaleDateString() === dateKey)
+                    if (!isDup) unique.push(comm)
+                    return unique
+                  }, []).map((comm: any) => (
+                    <div key={comm.id} className={`p-3 border-l-4 rounded ${comm.direction === 'inbound' ? 'border-l-green-500 bg-green-50 dark:bg-green-900/20' : 'border-l-blue-500 bg-blue-50 dark:bg-blue-900/20'}`}>
                       <div className="flex items-center justify-between mb-1">
                         <Badge
-                          variant={
-                            comm.direction === 'inbound' ? 'default' : 'secondary'
-                          }
-                          className="text-xs"
+                          variant={comm.direction === 'inbound' ? 'default' : 'secondary'}
+                          className={comm.direction === 'inbound' ? 'bg-green-600' : 'bg-blue-600'}
                         >
                           {comm.direction === 'inbound' ? '📥 IN' : '📤 OUT'}
                         </Badge>
@@ -1346,7 +1362,7 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
                           {new Date(comm.created_at).toLocaleDateString()}
                         </span>
                       </div>
-                      <p className="text-sm truncate">{comm.subject}</p>
+                      <p className="text-sm truncate font-medium">{comm.subject}</p>
                     </div>
                   ))}
                 </div>
