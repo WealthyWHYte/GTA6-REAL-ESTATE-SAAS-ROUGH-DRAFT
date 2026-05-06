@@ -108,19 +108,65 @@ serve(async (req) => {
 
     const { data: account, error: fetchError } = await supabase
       .from('user_api_config')
-      .select('gmail_refresh_token, gmail_access_token, gmail_email')
+      .select('gmail_refresh_token, gmail_access_token, gmail_token_expiry, gmail_email')
       .eq('account_id', TARGET_ACCOUNT_ID)
       .single()
 
     console.log('Fetched account config:', JSON.stringify(account), 'Error:', fetchError)
 
+    // Check if token is expired or missing - refresh if needed
+    let accessToken = account?.gmail_access_token || ''
+    const tokenExpiry = account?.gmail_token_expiry ? new Date(account.gmail_token_expiry) : null
+    const now = new Date()
+    const isTokenExpired = !tokenExpiry || tokenExpiry.getTime() - now.getTime() < 5 * 60 * 1000  // Refresh 5 min before expiry
+
     if (account?.gmail_refresh_token) {
       refreshToken = account.gmail_refresh_token
-      console.log('✅ Using Gmail refresh token from DB for', account?.gmail_email)
+      
+      // If token missing or expired, refresh it
+      if (isTokenExpired || !accessToken) {
+        console.log('⏳ Token expired or missing, refreshing from Google...')
+        
+        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: Deno.env.get('GMAIL_CLIENT_ID')!,
+            client_secret: Deno.env.get('GMAIL_CLIENT_SECRET')!,
+            refresh_token: refreshToken,
+            grant_type: 'refresh_token'
+          })
+        })
+
+        if (!tokenResponse.ok) {
+          console.log('❌ Failed to refresh Gmail token')
+          return new Response(JSON.stringify({ success: false, error: 'Token refresh failed' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          })
+        }
+
+        const tokens = await tokenResponse.json()
+        accessToken = tokens.access_token
+        const expiresIn = tokens.expires_in || 3600
+        const newExpiry = new Date(now.getTime() + expiresIn * 1000).toISOString()
+
+        // Update DB with new access token and expiry
+        await supabase
+          .from('user_api_config')
+          .update({
+            gmail_access_token: accessToken,
+            gmail_token_expiry: newExpiry
+          })
+          .eq('account_id', TARGET_ACCOUNT_ID)
+
+        console.log('✅ Refreshed access token, expires at:', newExpiry)
+      } else {
+        console.log('✅ Using cached access token, expires at:', tokenExpiry)
+      }
     } else {
       // Fallback to env var
       refreshToken = Deno.env.get('GMAIL_REFRESH_TOKEN') || ''
-      console.log('⚠️ No DB token, trying env var GMAIL_REFRESH_TOKEN')
+      console.log('⚠️ No DB refresh token, trying env var GMAIL_REFRESH_TOKEN')
     }
 
     if (!refreshToken) {
@@ -133,27 +179,12 @@ serve(async (req) => {
       })
     }
 
-    // Use refresh token to get access token
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: Deno.env.get('GMAIL_CLIENT_ID')!,
-        client_secret: Deno.env.get('GMAIL_CLIENT_SECRET')!,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token'
-      })
-    })
-
-    if (!tokenResponse.ok) {
-      console.log('❌ Failed to refresh Gmail token')
-      return new Response(JSON.stringify({ success: false, error: 'Token refresh failed' }), {
+    if (!accessToken) {
+      console.log('❌ No access token available')
+      return new Response(JSON.stringify({ success: false, error: 'No access token' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
-
-    const tokens = await tokenResponse.json()
-    const accessToken = tokens.access_token || account?.gmail_access_token
 
     console.log('✅ Got access token, checking Gmail for', account?.gmail_email)
       const gmailResponse = await fetch(
@@ -165,7 +196,9 @@ serve(async (req) => {
 
       if (!gmailResponse.ok) {
         console.log(`⚠️ Gmail API error: ${gmailResponse.status}`)
-        continue
+        return new Response(JSON.stringify({ success: false, error: `Gmail API error: ${gmailResponse.status}` }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
       }
 
       const gmailData = await gmailResponse.json()
