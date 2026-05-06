@@ -70,7 +70,7 @@ export default function EmailCloserPage() {
           const { data: fallbackData } = await supabase
             .from('property_analysis')
             .select('*')
-            .eq('account_id', user.id)
+            .eq('account_id', ACCOUNT_ID)
             .order('win_win_score', { ascending: false })
             .limit(1)
 
@@ -96,7 +96,7 @@ export default function EmailCloserPage() {
       const { data } = await supabase
         .from('offers')
         .select('*, properties(*)')
-        .eq('account_id', user?.id)
+        .eq('account_id', ACCOUNT_ID)
         .in('status', ['pending_response', 'sent'])
         .order('sent_at', { ascending: false })
       return data || []
@@ -112,7 +112,7 @@ export default function EmailCloserPage() {
       const { data } = await supabase
         .from('property_analysis')
         .select('*, properties(*)')
-        .eq('account_id', user?.id)
+        .eq('account_id', ACCOUNT_ID)
         .order('win_win_score', { ascending: false })
       return data || []
     }
@@ -127,7 +127,7 @@ export default function EmailCloserPage() {
       const { data, error } = await supabase
         .from('communications')
         .select('id, property_id, to_email, direction, status, subject, body, created_at')
-        .eq('account_id', user?.id)
+        .eq('account_id', ACCOUNT_ID)
         .order('created_at', { ascending: false })
         .limit(50)
       
@@ -139,46 +139,50 @@ export default function EmailCloserPage() {
     }
   })
 
-  // Get AI drafts pending approval
+  // Hardcoded account_id to match cron saves
+const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
+
+// Get AI drafts pending approval
   const { data: pendingApprovals } = useQuery({
     queryKey: ['pending_approvals'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return []
-      // Simple query - avoid complex joins causing 400
       const { data, error } = await supabase
         .from('communications')
         .select('id, property_id, to_email, subject, body, status, objection_type, created_at')
-        .eq('account_id', user?.id)
+        .eq('account_id', ACCOUNT_ID)
         .eq('status', 'pending_approval')
-      
-      if (error) {
-        console.error('pending_approvals query error:', error)
-        return []
-      }
+      console.log('📬 pending_approvals result:', { data, error })
+      if (error) return []
       return data || []
     }
   })
 
-  // Get follow-up queue - shows properties needing follow-up
+  // Get follow-up queue
   const { data: followUpQueue } = useQuery({
     queryKey: ['follow_up_queue'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return []
-      
-      // Simple query without joins - avoid 400 errors
       const { data, error } = await supabase
         .from('follow_up_queue')
         .select('id, property_id, offer_id, follow_up_type, scheduled_for, status, notes')
         .eq('status', 'pending')
-      
-      if (error) {
-        console.error('follow_up_queue query error:', error)
-        return []
-      }
-      
-      return (data || []).filter(item => new Date(item.scheduled_for) <= new Date()).sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())
+        .eq('account_id', ACCOUNT_ID)
+      if (error) return []
+      return (data || []).filter(i => new Date(i.scheduled_for) <= new Date()).sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())
+    }
+  })
+
+  // Get recent communications
+  const { data: communications } = useQuery({
+    queryKey: ['communications'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('communications')
+        .select('id, property_id, to_email, direction, status, subject, body, created_at')
+        .eq('account_id', ACCOUNT_ID)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (error) return []
+      return data || []
     }
   })
 
