@@ -1,98 +1,36 @@
-// Email Closer Agent Page
+// Email Closer Agent Page - Thin orchestrator
 // Handles follow-up, negotiation, objections, and closing
 
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { AlertTriangle, ArrowLeft, Calculator, CheckCircle, ChevronDown, ChevronRight, Clock, History, Home, Mail, MessageSquare, Phone, Reply, Send, Target, Users, User, Building, DollarSign, TrendingUp, Percent } from 'lucide-react'
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
+import { MessageSquare, ArrowLeft } from 'lucide-react'
+import { StatsBar, PendingApproval, OffersQueue, ActivityFeed, AIEmailGenerator } from '@/components/email-closer'
 
-const OBJECTION_TEMPLATES = [
-  { type: 'low', label: 'Price Too Low', icon: '💰' },
-  { type: 'finance', label: 'Financing Concern', icon: '🏦' },
-  { type: 'timing', label: 'Wrong Timing', icon: '⏰' },
-  { type: 'multiple', label: 'Multiple Offers', icon: '📋' },
-  { type: 'condition', label: 'Property Condition', icon: '🏠' }
-]
+// Hardcoded account_id
+const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
 
 export default function EmailCloserPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [selectedOffer, setSelectedOffer] = useState<any>(null)
   const [selectedLevel, setSelectedLevel] = useState<1 | 2 | 3>(1)
-  const [emailType, setEmailType] = useState('offer_presentation')
-  const [customMessage, setCustomMessage] = useState('')
-  const [objectionType, setObjectionType] = useState('')
-  const [emailSubject, setEmailSubject] = useState('')
-  const [emailBody, setEmailBody] = useState('')
-  const [showPreview, setShowPreview] = useState(false)
-  const [sendSuccess, setSendSuccess] = useState(false)
-  const [expandedLevel, setExpandedLevel] = useState<number | null>(1)
-  const [showFullPropertyDetails, setShowFullPropertyDetails] = useState(false)
-  const [emailMode, setEmailMode] = useState<'seller' | 'buyer'>('seller') // Toggle between seller outreach and buyer dispo
-  const [notes, setNotes] = useState('')
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [showNotesField, setShowNotesField] = useState(false)
 
-  const queryClient = useQueryClient()
-
-  // Get property/analysis from underwriter navigation
-  // NOTE: property_analysis already contains denormalized property data (beds, baths, sqft, agent info, etc.)
-  // We don't need to fetch from properties table since the data is already in property_analysis
+  // Load property from navigation
   useEffect(() => {
-    async function loadData() {
-      console.log('📧 Email Closer: location.state =', location.state)
-
-      if (location.state?.property) {
-        const analysisData = location.state.property
-        console.log('📊 Analysis data received:', {
-          property_id: analysisData.property_id,
-          address: analysisData.address,
-          win_win_score: analysisData.win_win_score,
-          agent_name: analysisData.agent_name,
-          agent_email: analysisData.agent_email
-        })
-
-        setSelectedLevel(location.state.selected_level || 1)
-        // property_analysis already has all the data we need - just use it directly
-        setSelectedOffer(analysisData)
-      } else {
-        console.warn('⚠️ No location.state.property found - trying fallback fetch')
-        // Fallback: fetch property_analysis directly if navigation state was lost
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { data: fallbackData } = await supabase
-            .from('property_analysis')
-            .select('*')
-            .eq('account_id', ACCOUNT_ID)
-            .order('win_win_score', { ascending: false })
-            .limit(1)
-
-          if (fallbackData && fallbackData[0]) {
-            console.log('🔄 Fallback: using most recent property_analysis')
-            const analysisData = fallbackData[0]
-            setSelectedLevel(1)
-            setSelectedOffer(analysisData)
-          } else {
-            console.log('🔄 No property_analysis found')
-          }
-        }
-      }
+    if (location.state?.property) {
+      setSelectedOffer(location.state.property)
+      setSelectedLevel(location.state.selected_level || 1)
     }
-    loadData()
   }, [location.state])
 
-  // Get offers awaiting response
+  // Query: offers pending response
   const { data: pendingOffers } = useQuery({
     queryKey: ['offers_pending'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
       const { data } = await supabase
         .from('offers')
         .select('*, properties(*)')
@@ -103,436 +41,69 @@ export default function EmailCloserPage() {
     }
   })
 
-  // Get scored properties ready for outreach
-  const { data: scoredProperties } = useQuery({
-    queryKey: ['scored-properties'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return []
-      const { data } = await supabase
-        .from('property_analysis')
-        .select('*, properties(*)')
-        .eq('account_id', ACCOUNT_ID)
-        .order('win_win_score', { ascending: false })
-      return data || []
-    }
-  })
-
-  // Get recent communications - filtered by account
-  const { data: communications } = useQuery({
-    queryKey: ['communications'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return []
-      const { data, error } = await supabase
-        .from('communications')
-        .select('id, property_id, to_email, direction, status, subject, body, created_at')
-        .eq('account_id', ACCOUNT_ID)
-        .order('created_at', { ascending: false })
-        .limit(50)
-      
-      if (error) {
-        console.error('communications query error:', error)
-        return []
-      }
-      return data || []
-    }
-  })
-
-  // Hardcoded account_id to match cron saves
-const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
-
-// Get AI drafts pending approval
+  // Query: AI drafts pending approval
   const { data: pendingApprovals } = useQuery({
     queryKey: ['pending_approvals'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('communications')
-        .select('id, property_id, to_email, to_name, subject, body, status, email_type, created_at')
+        .select('*')
         .eq('account_id', ACCOUNT_ID)
         .eq('status', 'pending_approval')
-      console.log('📬 pending_approvals result:', { data, error })
-      if (error) return []
       return data || []
     }
   })
 
-  // Get follow-up queue
-  const { data: followUpQueue } = useQuery({
-    queryKey: ['follow_up_queue'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('follow_up_queue')
-        .select('id, property_id, offer_id, follow_up_type, scheduled_for, status, notes')
-        .eq('status', 'pending')
-        .eq('account_id', ACCOUNT_ID)
-      if (error) return []
-      return (data || []).filter(i => new Date(i.scheduled_for) <= new Date()).sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())
-    }
-  })
-
-  // Get recent communications
+  // Query: recent communications
   const { data: communications } = useQuery({
     queryKey: ['communications'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('communications')
-        .select('id, property_id, to_email, direction, status, subject, body, created_at')
+        .select('*')
         .eq('account_id', ACCOUNT_ID)
         .order('created_at', { ascending: false })
         .limit(50)
-      if (error) return []
       return data || []
     }
   })
 
-  // Get level data helper
-  const getLevelData = () => {
-    if (!selectedOffer) return null
-    const listingPrice = selectedOffer.listing_price || selectedOffer.level3_offer_price || selectedOffer.offer_price || 0
-    return {
-      1: {
-        offer_price: selectedOffer.level1_offer_price || listingPrice * 0.7,
-        structure: "70% + Terms (Seller Finance)",
-        entry_fee: selectedOffer.level1_entry_fee || 0,
-        monthly: selectedOffer.level1_monthly_payment || 0
-      },
-      2: {
-        offer_price: selectedOffer.level2_offer_price || listingPrice * 0.7,
-        structure: "70% All Cash",
-        entry_fee: selectedOffer.level2_entry_fee || 0,
-        monthly: 0
-      },
-      3: {
-        offer_price: selectedOffer.level3_offer_price || listingPrice,
-        structure: "100% Full Price + Terms",
-        entry_fee: selectedOffer.level3_entry_fee || 0,
-        monthly: selectedOffer.level3_monthly_payment || 0,
-        assume_mortgage: selectedOffer.level3_assume_mortgage || 0,
-        seller_carry: selectedOffer.level3_seller_carry_amount || 0
-      }
-    }[selectedLevel]
-  }
-
-  // Generate AI email mutation
-  const generateEmailMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedOffer) {
-        throw new Error('Select a property first')
-      }
-
-      const levelData = getLevelData()
-
-      // Map email type to our AI function types
-      const emailTypeMap: Record<string, string> = {
-        'follow_up_1': 'follow_up',
-        'follow_up_2': 'follow_up',
-        'follow_up_3': 'follow_up',
-        'objection_price': 'objection_handler',
-        'objection_terms': 'objection_handler',
-        'objection_timing': 'objection_handler',
-        'offer_presentation': 'offer_presentation',
-        'closing': 'closing',
-        'initial_outreach': 'initial_outreach'
-      }
-
-      // Determine email type based on mode
-      const aiEmailType = emailMode === 'buyer' ? 'buyer_dispo' : (emailTypeMap[emailType] || 'offer_presentation')
-
-      const { data: { session } } = await supabase.auth.getSession()
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-email`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session?.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            property_id: selectedOffer.property_id,
-            email_type: aiEmailType,
-            email_mode: emailMode, // 'seller' or 'buyer'
-            seller_name: selectedOffer.agent_name || selectedOffer.seller_name,
-            custom_message: customMessage,
-            level: selectedLevel,
-            offer_price: levelData?.offer_price,
-            structure: levelData?.structure,
-            entry_fee: levelData?.entry_fee,
-            monthly_payment: levelData?.monthly,
-            property_data: {
-              address: selectedOffer.address,
-              city: selectedOffer.city,
-              state: selectedOffer.state,
-              listing_price: selectedOffer.listing_price,
-              estimated_value: selectedOffer.estimated_value,
-              open_mortgage_balance: selectedOffer.open_mortgage_balance,
-              agent_email: selectedOffer.agent_email,
-              agent_name: selectedOffer.agent_name,
-              seller_name: selectedOffer.seller_name,
-              // Property details for buyer emails
-              bedrooms: selectedOffer.bedrooms,
-              bathrooms: selectedOffer.bathrooms,
-              sqft: selectedOffer.sqft,
-              year_built: selectedOffer.year_built,
-              // Pass offer details for email generation
-              level1_offer_price: selectedOffer.level1_offer_price,
-              level1_entry_fee: selectedOffer.level1_entry_fee,
-              level1_monthly_payment: selectedOffer.level1_monthly_payment,
-              level1_seller_carry_rate: selectedOffer.level1_seller_carry_rate,
-              level2_offer_price: selectedOffer.level2_offer_price,
-              level2_entry_fee: selectedOffer.level2_entry_fee,
-              level3_offer_price: selectedOffer.level3_offer_price,
-              level3_entry_fee: selectedOffer.level3_entry_fee,
-              level3_monthly_payment: selectedOffer.level3_monthly_payment,
-              level3_seller_carry_rate: selectedOffer.level3_seller_carry_rate,
-              mortgage_rate: selectedOffer.mortgage_rate,
-              days_on_market: selectedOffer.days_on_market,
-              win_win_score: selectedOffer.win_win_score,
-              strategy: selectedOffer.strategy,
-              ai_analysis: selectedOffer.reasoning
-            }
-          })
-        }
-      )
-
-      const result = await response.json()
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to generate email')
-      }
-      return result
-    },
-    onSuccess: (data) => {
-      setEmailSubject(data.email?.subject || 'Purchase Offer - Creative Finance Proposal')
-      setEmailBody(data.email?.body || '')
-      setShowPreview(true)
-      queryClient.invalidateQueries({ queryKey: ['communications'] })
-      queryClient.invalidateQueries({ queryKey: ['offers_pending'] })
+  // Query: follow-up queue
+  const { data: followUpQueue } = useQuery({
+    queryKey: ['follow_up_queue'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('follow_up_queue')
+        .select('*')
+        .eq('status', 'pending')
+        .eq('account_id', ACCOUNT_ID)
+      if (!data) return []
+      return data
+        .filter(i => new Date(i.scheduled_for) <= new Date())
+        .sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime())
     }
   })
 
-  // Send email mutation (for sending the AI-generated email)
-  const sendMutation = useMutation({
-    mutationFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-
-      // Save communication to database
-      const { data: commData, error: commError } = await supabase
-        .from('communications')
-        .insert({
-          account_id: session?.user?.id,
-          property_id: selectedOffer.property_id,
-          direction: 'outbound',
-          subject: emailSubject,
-          body: emailBody,
-          email_type: emailType,
-          level: selectedLevel,
-          status: 'sent'
-        })
-
-      if (commError) throw commError
-
-      // Send via Gmail (if connected)
-      const recipientEmail = selectedOffer.agent_email || selectedOffer.properties?.agent_email
-      const recipientName = selectedOffer.agent_name || selectedOffer.properties?.agent_name
-
-      if (!recipientEmail) {
-        console.error('❌ Missing recipient_email:', { selectedOffer })
-        throw new Error('Recipient email is missing - cannot send')
-      }
-
-      console.log('📤 Sending email:', { recipientEmail, recipientName, subject: emailSubject })
-
-      try {
-        const { data, error } = await supabase.functions.invoke('send-email', {
-          body: {
-            property_id: selectedOffer.property_id,
-            recipient_email: recipientEmail,
-            recipient_name: recipientName,
-            subject: emailSubject,
-            body: emailBody,
-            level: selectedLevel
-          }
-        })
-        console.log('📬 Send-email response:', { data, error })
-        if (error) throw error
-        return data
-      } catch (sendErr: any) {
-        console.error('❌ Gmail send failed:', sendErr?.message || sendErr)
-        throw sendErr // Re-throw so user sees the error
-      }
-    },
-    onSuccess: async () => {
-      // Mark property as contacted so it doesn't show in Underwriter queue
-      if (selectedOffer?.property_id) {
-        await supabase
-          .from('property_analysis')
-          .update({ contacted_at: new Date().toISOString() })
-          .eq('property_id', selectedOffer.property_id)
-      }
-
-      setSendSuccess(true)
-      queryClient.invalidateQueries({ queryKey: ['offers_pending'] })
-      queryClient.invalidateQueries({ queryKey: ['communications'] })
-      queryClient.invalidateQueries({ queryKey: ['follow_up_queue'] })
-      queryClient.invalidateQueries({ queryKey: ['property-analysis'] }) // Refresh underwriter queue
-      setTimeout(() => {
-        setSendSuccess(false)
-        setShowPreview(false)
-        setEmailSubject('')
-        setEmailBody('')
-      }, 3000)
-    },
-    onError: (err: any) => {
-      console.error('❌ Send mutation error:', err)
-      alert('Failed to send email: ' + (err?.message || 'Unknown error'))
-    }
-  })
-
-  // Approve draft mutation
-  const approveDraftMutation = useMutation({
-    mutationFn: async (draft: any) => {
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      // Send via Gmail
-      const recipientEmail = draft.agent_email || draft.properties?.agent_email
-      const recipientName = draft.agent_name || draft.properties?.agent_name
-
-      if (!recipientEmail) {
-        throw new Error('Recipient email is missing')
-      }
-
-      try {
-        const { data, error } = await supabase.functions.invoke('send-email', {
-          body: {
-            property_id: draft.property_id,
-            recipient_email: recipientEmail,
-            recipient_name: recipientName,
-            subject: draft.subject,
-            body: draft.body,
-            level: draft.level
-          }
-        })
-        if (error) throw error
-        return data
-      } catch (sendErr: any) {
-        console.error('❌ Gmail send failed:', sendErr)
-        throw sendErr
-      }
-    },
-    onSuccess: async (_, draft) => {
-      // Update status to sent
-      await supabase
-        .from('communications')
-        .update({ status: 'sent' })
-        .eq('id', draft.id)
-      
-      queryClient.invalidateQueries({ queryKey: ['pending_approvals'] })
-      queryClient.invalidateQueries({ queryKey: ['communications'] })
-    },
-    onError: (err: any) => {
-      console.error('❌ Approve error:', err)
-      alert('Failed to approve: ' + err?.message)
-    }
-  })
-
-  // Discard draft mutation
-  const discardDraftMutation = useMutation({
-    mutationFn: async (draft: any) => {
-      await supabase
-        .from('communications')
-        .delete()
-        .eq('id', draft.id)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending_approvals'] })
-    }
-  })
-
-  // Snooze offer mutation
-  const snoozeOfferMutation = useMutation({
-    mutationFn: async (offer: any) => {
-      const snoozedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      await supabase
-        .from('offers')
-        .update({ snoozed_until: snoozedUntil })
-        .eq('id', offer.id)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['offers_pending'] })
-    }
-  })
-
-  // Save notes mutation
-  const saveNotesMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedOffer?.property_id || !notes.trim()) return
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('communications').insert({
-        account_id: user?.id,
-        property_id: selectedOffer.property_id,
-        direction: 'internal',
-        comm_type: 'note',
-        subject: 'Internal Note',
-        body: notes,
-        status: 'note_saved'
-      })
-    },
-    onSuccess: () => {
-      setNotes('')
-      setShowNotesField(false)
-      queryClient.invalidateQueries({ queryKey: ['communications'] })
-      alert('Note saved!')
-    }
-  })
-
-  // Save tags mutation
-  const saveTagsMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedOffer?.property_id || selectedTags.length === 0) return
-      // Save tags as JSON in offers table
-      await supabase
-        .from('offers')
-        .update({ tags: selectedTags })
-        .eq('property_id', selectedOffer.property_id)
-        .eq('account_id', selectedOffer.account_id)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['offers_pending'] })
-      alert('Tags saved!')
-    }
-  })
-
-  const TAGS = ['Hot Lead', 'Price Objection', 'Needs POF', 'Wrong Timing', 'Not Interested']
-
-  const stats = {
-    pending: pendingOffers?.length || 0,
-    followUps: followUpQueue?.length || 0,
-    responded: (communications?.filter((c: any) => c.direction === 'inbound').length || 0) + (pendingApprovals?.length || 0)
-  }
-
-  const levelData = getLevelData()
+  // Stats
+  const responded = (communications?.filter((c: any) => c.direction === 'inbound').length || 0) + (pendingApprovals?.length || 0)
 
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gta-blue mb-2 flex items-center gap-3">
               <MessageSquare className="w-8 h-8" />
               Email Closer Agent
             </h1>
-            <p className="text-muted-foreground">
-              Follow-up, negotiation, objection handling, and closing
-            </p>
+            <p className="text-muted-foreground">Follow-up, negotiation, objection handling, and closing</p>
           </div>
           <div className="flex gap-2">
-            {selectedOffer && (
-              <Button variant="outline" onClick={() => navigate('/agent/underwriter')}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Underwriter
-              </Button>
-            )}
+            <Button variant="outline" onClick={() => navigate('/agent/underwriter')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Underwriter
+            </Button>
             <Button variant="outline" onClick={() => navigate('/command-center')}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Command Center
@@ -540,777 +111,49 @@ const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
           </div>
         </div>
 
-        {/* Success Message */}
-        {sendSuccess && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-500 rounded-lg flex items-center gap-3">
-            <CheckCircle className="w-6 h-6 text-green-500" />
-            <div>
-              <p className="font-bold text-green-700">✅ Email Sent Successfully!</p>
-              <p className="text-sm text-green-600">Tracking in communications...</p>
-            </div>
-          </div>
-        )}
+        {/* Stats Bar */}
+        <StatsBar
+          pending={pendingOffers?.length || 0}
+          followUps={followUpQueue?.length || 0}
+          replied={responded}
+          pendingApproval={pendingApprovals?.length || 0}
+        />
 
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-[10px] mb-4">
-          {/* Pending Response - Orange */}
-          <div className="rounded-md p-3 px-4 border-l-[3px] border-orange-600 bg-orange-50">
-            <div className="text-[11px] font-medium uppercase tracking-wider text-amber-800 mb-1">Pending Response</div>
-            <div className="text-[22px] font-medium text-amber-900">{stats.pending}</div>
-          </div>
-          {/* Due Follow-up - Yellow */}
-          <div className="rounded-md p-3 px-4 border-l-[3px] border-yellow-600 bg-amber-50">
-            <div className="text-[11px] font-medium uppercase tracking-wider text-yellow-800 mb-1">Due Follow-up</div>
-            <div className="text-[22px] font-medium text-yellow-900">{stats.followUps}</div>
-          </div>
-          {/* Replies Received - Green */}
-          <div className="rounded-md p-3 px-4 border-l-[3px] border-green-600 bg-green-50">
-            <div className="text-[11px] font-medium uppercase tracking-wider text-green-900 mb-1">Replies Received</div>
-            <div className="text-[22px] font-medium text-green-800">{stats.responded}</div>
-          </div>
-          {/* Pending Approval - Blue */}
-          <div className="rounded-md p-3 px-4 border-l-[3px] border-blue-600 bg-blue-50">
-            <div className="text-[11px] font-medium uppercase tracking-wider text-blue-900 mb-1">Pending Approval</div>
-            <div className="text-[22px] font-medium text-blue-800">{pendingApprovals?.length || 0}</div>
-          </div>
-        </div>
+        {/* Pending Approval - Gold bordered */}
+        <PendingApproval drafts={pendingApprovals || []} />
 
-        {/* AI drafts - pending your approval */}
-        {pendingApprovals && pendingApprovals.length > 0 && (
-          <div className="mb-4">
-            <div className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground mb-2">AI drafts — pending your approval</div>
-            {pendingApprovals.map((draft: any) => (
-              <div key={draft.id} className="border-[1.5px] border-yellow-600 rounded-lg bg-amber-50 p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-amber-100 text-amber-800 text-[11px] font-medium px-2 py-0.5 rounded-full">AI Draft</span>
-                    <span className="text-[13px] font-medium">{draft.to_email}</span>
-                    <span className="bg-red-100 text-red-800 text-[11px] px-2 py-0.5 rounded-full">Wrong Timing</span>
-                  </div>
-                  <span className="text-[12px] text-muted-foreground">{draft.created_at ? new Date(draft.created_at).toLocaleDateString() : '5/6/2026'}</span>
-                </div>
-                <div className="text-[12px] font-medium text-amber-800 mb-2">{draft.subject || 'Re: Property — No Pressure'}</div>
-                <div className="bg-background border border-border rounded-md p-3 text-[13px] text-muted-foreground leading-relaxed mb-3">
-                  {draft.body}
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => approveDraftMutation.mutate(draft)} disabled={approveDraftMutation.isPending} className="bg-green-600 hover:bg-green-700 text-white border-none text-[12px] font-medium px-4">
-                    {approveDraftMutation.isPending ? 'Sending...' : 'Approve & Send'}
-                  </Button>
-                  <Button size="sm" variant="outline" className="text-[12px] px-4">Edit</Button>
-                  <Button size="sm" onClick={() => discardDraftMutation.mutate(draft)} className="bg-red-100 text-red-800 border-none text-[12px] hover:bg-red-200">
-                    Discard
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
+        {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Left Column: Offers */}
+          {/* Left Column */}
           <div className="space-y-4">
-            {/* Property/Deal Info when coming from Underwriter */}
+            {/* Selected Property Card */}
             {selectedOffer && (
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <Target className="w-5 h-5" />
-                      {selectedOffer.address || selectedOffer.properties?.address}
-                    </CardTitle>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowFullPropertyDetails(!showFullPropertyDetails)}
-                    >
-                      {showFullPropertyDetails ? 'Hide Details' : 'Show Full Details'}
-                      <ChevronDown className={`w-4 h-4 ml-1 transition-transform ${showFullPropertyDetails ? 'rotate-180' : ''}`} />
-                    </Button>
-                  </div>
+                  <CardTitle>{selectedOffer.address || 'Selected Property'}</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  {/* Quick Stats */}
-                  <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Asking Price</p>
-                      <p className="text-lg font-bold">${(selectedOffer.listing_price || selectedOffer.level3_offer_price || selectedOffer.properties?.listing_price || 0).toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Win-Win Score</p>
-                      <p className="text-lg font-bold">{selectedOffer.win_win_score || 0}/100</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Strategy</p>
-                      <Badge>{selectedOffer.strategy || 'Creative Finance'}</Badge>
-                    </div>
-                  </div>
-
-                  {/* Agent Information */}
-                  <div className="p-4 bg-muted/50 rounded-lg mb-4">
-                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      Listing Agent / Seller Contact
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Name</p>
-                        <p className="text-sm font-medium">
-                          {selectedOffer.agent_name || selectedOffer.listing_agent_full_name || selectedOffer.seller_name || 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="text-sm font-medium">
-                          {selectedOffer.agent_email || selectedOffer.listing_agent_email || 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Phone</p>
-                        <p className="text-sm font-medium">
-                          {selectedOffer.agent_phone || selectedOffer.listing_agent_phone || selectedOffer.seller_phone || 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Brokerage</p>
-                        <p className="text-sm font-medium">
-                          {selectedOffer.brokerage || selectedOffer.listing_brokerage_name || 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Expanded Property Details */}
-                  {showFullPropertyDetails && (
-                    <div className="space-y-4 pt-4 border-t">
-                      <h4 className="text-sm font-semibold flex items-center gap-2">
-                        <Home className="w-4 h-4" />
-                        Property Details
-                      </h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Bedrooms</p>
-                          <p className="text-sm font-medium">{selectedOffer.bedrooms || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Bathrooms</p>
-                          <p className="text-sm font-medium">{selectedOffer.bathrooms || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Square Feet</p>
-                          <p className="text-sm font-medium">{selectedOffer.living_square_feet || selectedOffer.sqft || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Year Built</p>
-                          <p className="text-sm font-medium">{selectedOffer.year_built || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Property Type</p>
-                          <p className="text-sm font-medium">{selectedOffer.property_type || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Days on Market</p>
-                          <p className="text-sm font-medium">{selectedOffer.days_on_market || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Price/Sqft</p>
-                          <p className="text-sm font-medium">{selectedOffer.sqft && selectedOffer.level3_offer_price ? '$' + Math.round(selectedOffer.level3_offer_price / selectedOffer.sqft) + '/sqft' : 'N/A'}</p>
-                        </div>
-
-                      </div>
-
-                      {/* Financial Details */}
-                      <h4 className="text-sm font-semibold flex items-center gap-2 mt-4">
-                        <DollarSign className="w-4 h-4" />
-                        Financial Details
-                      </h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Estimated Value</p>
-                          <p className="text-sm font-medium">${(selectedOffer.estimated_value || 0).toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Mortgage Balance</p>
-                          <p className="text-sm font-medium">${(selectedOffer.open_mortgage_balance || 0).toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Equity</p>
-                          <p className="text-sm font-medium">{selectedOffer.estimated_value && selectedOffer.open_mortgage_balance ? `${Math.round((1 - Number(selectedOffer.open_mortgage_balance) / Number(selectedOffer.estimated_value)) * 100)}%` : 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Mortgage Rate</p>
-                          <p className="text-sm font-medium">{selectedOffer.mortgage_rate ? `${selectedOffer.mortgage_rate}%` : 'N/A'}</p>
-                        </div>
-                      </div>
-
-                      {/* Underwriting Details */}
-                      <h4 className="text-sm font-semibold flex items-center gap-2 mt-4">
-                        <TrendingUp className="w-4 h-4" />
-                        Underwriting Analysis
-                      </h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground">ARV (After Repair Value)</p>
-                          <p className="text-sm font-medium">${(selectedOffer.estimated_arv || 0).toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Estimated Equity</p>
-                          <p className="text-sm font-medium">${selectedOffer.estimated_value && selectedOffer.open_mortgage_balance ? (Number(selectedOffer.estimated_value) - Number(selectedOffer.open_mortgage_balance)).toLocaleString() : '0'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Expected ROI</p>
-                          <p className="text-sm font-medium">{selectedOffer.expected_roi ? `${selectedOffer.expected_roi}%` : 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Max Offer Price</p>
-                          <p className="text-sm font-medium">${(Number(selectedOffer.level3_offer_price) || 0).toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Recommendation</p>
-                          <Badge variant={selectedOffer.recommendation?.includes('Elite') ? 'default' : 'secondary'}>
-                            {selectedOffer.recommendation || 'N/A'}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      {/* Deal Strengths */}
-                      {selectedOffer.factors && (
-                        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                          <h5 className="text-sm font-semibold text-green-700 mb-2">Deal Strengths</h5>
-                          <div className="flex flex-wrap gap-2">
-                            {Object.entries(selectedOffer.factors)
-                              .filter(([_, v]: any) => v === true)
-                              .map(([k]: any) => (
-                                <Badge key={k} variant="outline" className="bg-green-100 text-green-700">
-                                  {k.replace(/_/g, ' ')}
-                                </Badge>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* AI Reasoning */}
-                      {selectedOffer.reasoning && (
-                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <h5 className="text-sm font-semibold text-blue-700 mb-2">AI Analysis</h5>
-                          <p className="text-sm text-blue-900">{selectedOffer.reasoning}</p>
-                        </div>
-                      )}
-
-                      {/* Tags Row */}
-                      <div className="mt-4 pt-4 border-t">
-                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                          <Badge className="w-4 h-4" /> Tags
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                          {TAGS.map(tag => (
-                            <Badge
-                              key={tag}
-                              variant={selectedTags.includes(tag) ? 'default' : 'outline'}
-                              className="cursor-pointer"
-                              onClick={() => {
-                                setSelectedTags(prev => 
-                                  prev.includes(tag) 
-                                    ? prev.filter(t => t !== tag)
-                                    : [...prev, tag]
-                                )
-                              }}
-                            >
-                              {tag}
-                            </Badge>
-                          ))}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => saveTagsMutation.mutate()}
-                            disabled={saveTagsMutation.isPending}
-                          >
-                            Save Tags
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Notes Field */}
-                      <div className="mt-4 pt-4 border-t">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowNotesField(!showNotesField)}
-                          className="mb-2"
-                        >
-                          {showNotesField ? 'Hide Notes' : '+ Add Note'}
-                        </Button>
-                        {showNotesField && (
-                          <div className="space-y-2">
-                            <Textarea
-                              placeholder="Add internal notes about this property..."
-                              value={notes}
-                              onChange={(e) => setNotes(e.target.value)}
-                              rows={3}
-                            />
-                            <Button
-                              size="sm"
-                              onClick={() => saveNotesMutation.mutate()}
-                              disabled={saveNotesMutation.isPending || !notes.trim()}
-                            >
-                              Save Note
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
               </Card>
             )}
 
-            {/* Level Selector - Expandable */}
-            {selectedOffer && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calculator className="w-5 h-5" />
-                    Select Offer Level
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-3">
-                    {/* Level 1 */}
-                    <div className={`border rounded-lg transition-all ${selectedLevel === 1 ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
-                      <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => { setSelectedLevel(1); setEmailType('offer_presentation'); setExpandedLevel(expandedLevel === 1 ? null : 1); }}>
-                        <div className="flex items-center gap-4">
-                          <div>
-                            <p className="font-bold">Level 1: 70% + Terms (Seller Finance)</p>
-                            <p className="text-sm text-muted-foreground">Offer: ${(selectedOffer?.level1_offer_price || 0).toLocaleString()}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {selectedLevel === 1 && <Badge className="bg-vice-green text-black">Selected</Badge>}
-                          <ChevronDown className={`w-5 h-5 transition-transform ${expandedLevel === 1 ? 'rotate-180' : ''}`} />
-                        </div>
-                      </div>
-                      {expandedLevel === 1 && (
-                        <div className="px-4 pb-4 border-t pt-4 space-y-3">
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div>
-                              <p className="text-xs text-muted-foreground">Offer Price</p>
-                              <p className="text-lg font-bold">${(selectedOffer.level1_offer_price || 0).toLocaleString()}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Entry Fee (Down)</p>
-                              <p className="text-lg font-bold">${(selectedOffer.level1_entry_fee || 0).toLocaleString()}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Monthly Payment</p>
-                              <p className="text-lg font-bold">${Math.round(selectedOffer.level1_monthly_payment || 0).toLocaleString()}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Interest Rate</p>
-                              <p className="text-lg font-bold">{selectedOffer.level1_seller_carry_rate || selectedOffer.mortgage_rate || 'N/A'}%</p>
-                            </div>
-                          </div>
-                          <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm">
-                            <p className="font-semibold text-blue-700">Structure:</p>
-                            <p className="text-blue-900">70% of asking price with seller financing. Seller carries a promissory note with monthly payments over agreed term.</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+            {/* Offers Awaiting Response with urgency borders */}
+            <OffersQueue
+              offers={pendingOffers || []}
+              onSelectOffer={setSelectedOffer}
+              selectedPropertyId={selectedOffer?.property_id}
+            />
 
-                    {/* Level 2 */}
-                    <div className={`border rounded-lg transition-all ${selectedLevel === 2 ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
-                      <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => { setSelectedLevel(2); setEmailType('offer_presentation'); setExpandedLevel(expandedLevel === 2 ? null : 2); }}>
-                        <div className="flex items-center gap-4">
-                          <div>
-                            <p className="font-bold">Level 2: 70% All Cash</p>
-                            <p className="text-sm text-muted-foreground">Offer: ${(selectedOffer?.level2_offer_price || 0).toLocaleString()}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {selectedLevel === 2 && <Badge className="bg-vice-green text-black">Selected</Badge>}
-                          <ChevronDown className={`w-5 h-5 transition-transform ${expandedLevel === 2 ? 'rotate-180' : ''}`} />
-                        </div>
-                      </div>
-                      {expandedLevel === 2 && (
-                        <div className="px-4 pb-4 border-t pt-4 space-y-3">
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            <div>
-                              <p className="text-xs text-muted-foreground">Offer Price</p>
-                              <p className="text-lg font-bold">${(selectedOffer.level2_offer_price || 0).toLocaleString()}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Cash Required</p>
-                              <p className="text-lg font-bold">${(selectedOffer.level2_entry_fee || 0).toLocaleString()}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Monthly Payment</p>
-                              <p className="text-lg font-bold">$0 (All Cash)</p>
-                            </div>
-                          </div>
-                          <div className="p-3 bg-green-50 border border-green-200 rounded text-sm">
-                            <p className="font-semibold text-green-700">Structure:</p>
-                            <p className="text-green-900">70% of asking price, all-cash offer. No monthly payments, fastest closing, lowest seller risk.</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Level 3 */}
-                    <div className={`border rounded-lg transition-all ${selectedLevel === 3 ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
-                      <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => { setSelectedLevel(3); setEmailType('offer_presentation'); setExpandedLevel(expandedLevel === 3 ? null : 3); }}>
-                        <div className="flex items-center gap-4">
-                          <div>
-                            <p className="font-bold">Level 3: 100% Full Price + Terms</p>
-                            <p className="text-sm text-muted-foreground">Offer: ${(selectedOffer?.level3_offer_price || 0).toLocaleString()}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {selectedLevel === 3 && <Badge className="bg-vice-green text-black">Selected</Badge>}
-                          <ChevronDown className={`w-5 h-5 transition-transform ${expandedLevel === 3 ? 'rotate-180' : ''}`} />
-                        </div>
-                      </div>
-                      {expandedLevel === 3 && (
-                        <div className="px-4 pb-4 border-t pt-4 space-y-3">
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div>
-                              <p className="text-xs text-muted-foreground">Offer Price</p>
-                              <p className="text-lg font-bold">${(selectedOffer.level3_offer_price || 0).toLocaleString()}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Entry Fee</p>
-                              <p className="text-lg font-bold">${(selectedOffer.level3_entry_fee || 0).toLocaleString()}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Monthly Payment</p>
-                              <p className="text-lg font-bold">${Math.round(selectedOffer.level3_monthly_payment || 0).toLocaleString()}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Interest Rate</p>
-                              <p className="text-lg font-bold">{selectedOffer.level3_seller_carry_rate || selectedOffer.mortgage_rate || 'N/A'}%</p>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mt-3">
-                            <div className="p-3 bg-purple-50 border border-purple-200 rounded">
-                              <p className="text-xs text-purple-700 font-semibold">Assume Existing Mortgage</p>
-                              <p className="text-lg font-bold text-purple-900">${(selectedOffer.level3_assume_mortgage || 0).toLocaleString()}</p>
-                            </div>
-                            <div className="p-3 bg-orange-50 border border-orange-200 rounded">
-                              <p className="text-xs text-orange-700 font-semibold">Seller Carry (2nd Position)</p>
-                              <p className="text-lg font-bold text-orange-900">${(selectedOffer.level3_seller_carry_amount || 0).toLocaleString()}</p>
-                            </div>
-                          </div>
-                          <div className="p-3 bg-purple-50 border border-purple-200 rounded text-sm">
-                            <p className="font-semibold text-purple-700">Structure:</p>
-                            <p className="text-purple-900">Full asking price with creative terms. Buyer assumes existing mortgage + seller carries second position. Highest seller acceptance rate.</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Pending Offers - with urgency borders */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="w-5 h-5" />
-                  📬 Offers Awaiting Response ({pendingOffers?.length || 0})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {pendingOffers?.map((offer: any) => {
-                    const sentDate = offer.sent_at ? new Date(offer.sent_at) : null
-                    const daysSince = sentDate ? Math.floor((Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24)) : 0
-                    const urgency = daysSince >= 14 ? 'red' : daysSince >= 7 ? 'orange' : 'green'
-                    const urgencyColors = { red: 'border-l-red-500', orange: 'border-l-orange-500', green: 'border-l-green-500' }
-                    return (
-                      <div
-                        key={offer.id}
-                        className={`p-4 border-l-4 ${urgencyColors[urgency as keyof typeof urgencyColors]} rounded-lg cursor-pointer transition-all hover:shadow-md bg-card ${selectedOffer?.property_id === offer.property_id ? 'ring-2 ring-primary' : ''}`}
-                        onClick={() => setSelectedOffer(offer)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-[14px]">{offer.property_id}</span>
-                              <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${daysBg}`}>Day {daysSince}</span>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">{offer.status}</span>
-                            </div>
-                          </div>
-                          <span className="text-[13px] font-medium">${(offer.offer_price || 0).toLocaleString()}</span>
-                        </div>
-                        <div className="flex items-center justify-between mt-3">
-                          <div className="flex items-center gap-4 text-sm font-medium">
-                            <span className="text-lg">💰 Offer: ${(offer.offer_price || 0).toLocaleString()}</span>
-                            <span className="text-muted-foreground">📅 {sentDate ? sentDate.toLocaleDateString() : 'N/A'}</span>
-                          </div>
-                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); snoozeOfferMutation.mutate(offer) }} disabled={snoozeOfferMutation.isPending}>
-                            {snoozeOfferMutation.isPending ? '⏳' : '⏰'} Snooze
-                          </Button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {(!pendingOffers || pendingOffers.length === 0) && (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>No pending offers to follow up on</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Email Composer */}
-            {selectedOffer && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Send className="w-5 h-5" />
-                      AI Email Generator - {emailMode === 'seller' ? (selectedOffer.agent_name || 'Seller/Agent') : 'Buyer/Investor'}
-                    </div>
-                    {/* Email Mode Toggle */}
-                    <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
-                      <Button
-                        variant={emailMode === 'seller' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setEmailMode('seller')}
-                      >
-                        📩 To Seller
-                      </Button>
-                      <Button
-                        variant={emailMode === 'buyer' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setEmailMode('buyer')}
-                      >
-                        🏠 To Buyer
-                      </Button>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* AI Generate Button */}
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => generateEmailMutation.mutate()}
-                      disabled={generateEmailMutation.isPending}
-                      className="bg-gradient-to-r from-vice-pink to-vice-purple"
-                    >
-                      {generateEmailMutation.isPending ? '🤖 Generating...' : '✨ AI Generate Email'}
-                    </Button>
-                    {generateEmailMutation.isSuccess && (
-                      <span className="text-vice-green text-sm flex items-center">
-                        ✅ AI email ready!
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Quick Actions */}
-                  <div>
-                    <Label className="mb-2 block">Quick Actions</Label>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant={emailType === 'follow_up_1' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => { setEmailType('follow_up_1'); setObjectionType(''); }}
-                      >
-                        First Follow-up
-                      </Button>
-                      <Button
-                        variant={emailType === 'follow_up_2' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => { setEmailType('follow_up_2'); setObjectionType(''); }}
-                      >
-                        Second Follow-up
-                      </Button>
-                      <Button
-                        variant={emailType === 'negotiation' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => { setEmailType('negotiation'); setObjectionType(''); }}
-                      >
-                        Negotiate
-                      </Button>
-                      <Button
-                        variant={emailType === 'closing_request' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => { setEmailType('closing_request'); setObjectionType(''); }}
-                      >
-                        Request Closing
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Objection Handling */}
-                  <div>
-                    <Label className="mb-2 block">Objection Handling</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {OBJECTION_TEMPLATES.map((obj) => (
-                        <Button
-                          key={obj.type}
-                          variant={objectionType === obj.type ? 'destructive' : 'outline'}
-                          size="sm"
-                          onClick={() => { setObjectionType(obj.type); setEmailType('objection'); }}
-                        >
-                          {obj.icon} {obj.label}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Custom Message */}
-                  <div>
-                    <Label htmlFor="custom">Add Custom Message (Optional)</Label>
-                    <Textarea
-                      id="custom"
-                      value={customMessage}
-                      onChange={(e) => setCustomMessage(e.target.value)}
-                      placeholder="Add any additional context or personalization..."
-                      rows={3}
-                    />
-                  </div>
-
-                  {/* Email Preview */}
-                  {showPreview && (
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="subject">Subject</Label>
-                        <Input
-                          id="subject"
-                          value={emailSubject}
-                          onChange={(e) => setEmailSubject(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="body">Email Body</Label>
-                        <Textarea
-                          id="body"
-                          value={emailBody}
-                          onChange={(e) => setEmailBody(e.target.value)}
-                          rows={15}
-                          className="font-mono text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-end gap-3">
-                    <Button variant="outline" onClick={() => {
-                      setSelectedOffer(null)
-                      setCustomMessage('')
-                      setObjectionType('')
-                      setShowPreview(false)
-                      setEmailSubject('')
-                      setEmailBody('')
-                    }}>
-                      Cancel
-                    </Button>
-                    {showPreview ? (
-                      <Button
-                        onClick={() => sendMutation.mutate()}
-                        disabled={sendMutation.isPending}
-                        className="bg-gradient-to-r from-vice-green to-teal-500"
-                      >
-                        {sendMutation.isPending ? 'Sending...' : '📤 Send Email'}
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={() => generateEmailMutation.mutate()}
-                        disabled={generateEmailMutation.isPending}
-                      >
-                        Generate & Preview
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* AI Email Generator */}
+            <AIEmailGenerator
+              selectedProperty={selectedOffer}
+              selectedLevel={selectedLevel}
+              onPropertyClear={() => setSelectedOffer(null)}
+            />
           </div>
 
-          {/* Sidebar */}
+          {/* Right Column - Sidebar */}
           <div className="space-y-6">
-            {/* Follow-up Queue */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Clock className="w-5 h-5" />
-                  Follow-up Queue
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {followUpQueue?.map((item: any) => (
-                    <div
-                      key={item.id}
-                      className="p-3 border rounded cursor-pointer hover:bg-muted/50"
-                      onClick={() => {
-                        // Find the offer and select it
-                        const offer = pendingOffers?.find((o: any) => o.property_id === item.property_id)
-                        if (offer) setSelectedOffer(offer)
-                      }}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-sm truncate">
-                          {item.properties?.address || item.property_id}
-                        </span>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <Badge variant="outline">{item.follow_up_type?.replace(/_/g, ' ')}</Badge>
-                        <span className="text-muted-foreground">
-                          Due: {new Date(item.scheduled_for).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {(!followUpQueue || followUpQueue.length === 0) && (
-                    <p className="text-center text-muted-foreground py-4">
-                      No follow-ups due
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity - icon circles like mockup */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <History className="w-5 h-5" />
-                  📊 Recent Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {communications?.slice(0, 10).reduce((unique: any[], comm: any) => {
-                    const dateKey = new Date(comm.created_at).toLocaleDateString()
-                    const isDup = unique.find(u => u.subject === comm.subject && new Date(u.created_at).toLocaleDateString() === dateKey)
-                    if (!isDup) unique.push(comm)
-                    return unique
-                  }, []).map((comm: any) => (
-                    <div key={comm.id} className="flex items-start gap-3 py-2 border-b border-border">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium flex-shrink-0 ${
-                        comm.email_type === 'ai_draft' ? 'bg-amber-100 text-amber-800' :
-                        comm.direction === 'inbound' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {comm.email_type === 'ai_draft' ? 'AI' : comm.direction === 'inbound' ? 'IN' : 'OUT'}
-                      </div>
-                      <div>
-                        <p className="text-[13px] font-medium truncate">{comm.subject}</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {comm.email_type === 'ai_draft' ? `AI draft · ${comm.to_email || ''}` : comm.direction === 'inbound' ? 'received' : 'sent'} · {new Date(comm.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            {/* Recent Activity - Deduplicated */}
+            <ActivityFeed communications={communications || []} />
           </div>
         </div>
       </div>
