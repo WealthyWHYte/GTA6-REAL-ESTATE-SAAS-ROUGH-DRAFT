@@ -68,13 +68,26 @@ export default function PendingApproval({ drafts, onEditDraft }: PendingApproval
 
   const discardMutation = useMutation({
     mutationFn: async (draft: Draft) => {
-      await supabase
+      // Try delete first, if that fails just update status
+      const { error } = await supabase
         .from('communications')
         .delete()
         .eq('id', draft.id)
+      
+      if (error) {
+        // Fallback: update status instead of deleting
+        await supabase
+          .from('communications')
+          .update({ status: 'discarded' })
+          .eq('id', draft.id)
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pending_approvals'] })
+    },
+    onError: (err) => {
+      console.error('Discard error:', err)
+      alert('Failed to discard: ' + err?.message)
     }
   })
 
@@ -118,10 +131,15 @@ export default function PendingApproval({ drafts, onEditDraft }: PendingApproval
             >Edit</Button>
             <Button
               size="sm"
-              onClick={() => discardMutation.mutate(draft)}
+              onClick={() => {
+                if (confirm('Discard this draft?')) {
+                  discardMutation.mutate(draft)
+                }
+              }}
+              disabled={discardMutation.isPending}
               className="bg-red-100 text-red-800 border-none text-[12px] hover:bg-red-200"
             >
-              Discard
+              {discardMutation.isPending ? 'Discarding...' : 'Discard'}
             </Button>
           </div>
         </div>
