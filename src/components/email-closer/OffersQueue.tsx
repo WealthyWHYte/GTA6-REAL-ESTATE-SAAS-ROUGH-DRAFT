@@ -11,6 +11,11 @@ interface Offer {
   status: string
   offer_price?: number
   sent_at?: string
+  properties?: {
+    address?: string
+    city?: string
+    state?: string
+  }
 }
 
 interface OffersQueueProps {
@@ -68,10 +73,11 @@ export default function OffersQueue({ offers, onSelectOffer, selectedPropertyId 
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-[14px]">{offer.property_id}</span>
+                    <span className="font-medium text-[14px]">{offer.properties?.address || offer.property_id}</span>
                     <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${daysBg[urgency]}`}>Day {daysSince}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px] text-muted-foreground">{[offer.properties?.city, offer.properties?.state].filter(Boolean).join(', ')}</span>
                     <span className="text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">{offer.status}</span>
                   </div>
                 </div>

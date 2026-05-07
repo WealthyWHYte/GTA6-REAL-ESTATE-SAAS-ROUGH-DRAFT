@@ -6,9 +6,16 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { MessageSquare, ArrowLeft } from 'lucide-react'
-import { StatsBar, PendingApproval, OffersQueue, ActivityFeed, AIEmailGenerator } from '@/components/email-closer'
+import { 
+  StatsBar, 
+  PendingApproval, 
+  OffersQueue, 
+  ActivityFeed, 
+  AIEmailGenerator,
+  PropertyDetailsCard,
+  LevelSelector
+} from '@/components/email-closer'
 
 // Hardcoded account_id
 const ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
@@ -126,13 +133,18 @@ export default function EmailCloserPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Left Column */}
           <div className="space-y-4">
-            {/* Selected Property Card */}
+            {/* Property Details Card - Shows when property passed from Underwriter */}
             {selectedOffer && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{selectedOffer.address || 'Selected Property'}</CardTitle>
-                </CardHeader>
-              </Card>
+              <>
+                <PropertyDetailsCard property={selectedOffer} />
+                
+                {/* Level Selector */}
+                <LevelSelector 
+                  property={selectedOffer}
+                  selectedLevel={selectedLevel}
+                  onSelectLevel={(level) => setSelectedLevel(level)}
+                />
+              </>
             )}
 
             {/* Offers Awaiting Response with urgency borders */}

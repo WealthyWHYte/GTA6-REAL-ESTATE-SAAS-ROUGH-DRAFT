@@ -1,85 +1,72 @@
 # Project Summary
 
 ## Overall Goal
-Build a GTA 6 Real Estate SaaS CRM with AI-powered email negotiation agents that automatically polls Gmail for replies, detects objections, and drafts responses for human approval before sending.
+Build GTA 6 Real Estate SaaS platform - a real estate investment tool that helps agents analyze properties, generate creative finance offers, and close deals via email automation.
 
 ## Key Knowledge
 
-**Technology Stack:**
-- Frontend: React + TypeScript + Tailwind CSS + shadcn components
-- Backend: Supabase (PostgreSQL) with Edge Functions
-- Auth: Supabase Auth with hardcoded account ID for cron jobs
-- Deployment: Vercel (frontend), Supabase Edge Functions
+- **Project Root**: `/Users/antwaunm/Library/Mobile Documents/com~apple~CloudDocs/Projects3/GTA 6 Real Estate/gta-6-real-estate-saas-rough draft`
+- **Tech Stack**: React + Vite + TypeScript + TanStack Query + Supabase + shadcn/ui
+- **Build Command**: `npm run build`
+- **Visual Site**: https://www.gta6.miami/
+- **Route**: `/agent/email-closer`
+- **Hardcoded Account ID**: `757a0f4a-49cd-43b3-b6c2-70274f611039`
 
-**Critical Account ID:**
-```
-ACCOUNT_ID = '757a0f4a-49cd-43b3-b6c2-70274f611039'
-```
-Used to match cron-scheduler saves with frontend queries.
-
-**Database Schema - communications table columns:**
-- `account_id`, `property_id`, `to_email`, `to_name`
-- `subject`, `body` (NOT `message`)
-- `direction` (inbound/outbound)
-- `status` (pending_approval, sent, etc.)
-- `email_type` (ai_draft, sent, etc.)
-- `gmail_message_id`, `created_at`
-
-**Deployment Commands:**
-```bash
-supabase functions deploy cron-scheduler --no-verify-jwt
-supabase functions deploy send-email --no-verify-jwt
-git add -A && git commit -m "message" && git push
-```
+### Code Conventions
+- Component files go in `src/components/email-closer/`
+- Parent page (`email-closer.tsx`) acts as thin orchestrator (< 200 lines)
+- Property data passed via `useLocation()` state from Underwriter page
+- Join offers with `properties(*)` table to get addresses
 
 ## Recent Actions
 
-**Bug Fixes:**
-1. [DONE] Fixed 400 errors by removing complex Supabase joins and using simple field lists
-2. [DONE] Fixed account_id mismatch - frontend now uses hardcoded ACCOUNT_ID
-3. [DONE] Fixed cron-scheduler communications insert - changed `message`→`body`, `direction`→`outbound`, `email_type`→`ai_draft`, added `status: pending_approval`
-4. [DONE] Fixed duplicate emails - added 60-second duplicate check before insert in send-email
-5. [DONE] Fixed pending_approvals query - removed `email_type = 'ai_draft'` filter (was too restrictive)
+1. **[DONE] Split monolithic email-closer.tsx into 5 modular components**:
+   - `StatsBar.tsx` — 4 colored stat cards (orange/yellow/green/blue with left borders)
+   - `PendingApproval.tsx` — gold-bordered AI drafts pending approval
+   - `OffersQueue.tsx` — offers awaiting response with urgency borders
+   - `ActivityFeed.tsx` — recent activity deduplicated by date+subject
+   - `AIEmailGenerator.tsx` — email generation panel
 
-**Visual Upgrades - matching email_closer_crm_mockup.html:**
-1. [DONE] 4 colored stat cards with left border accents: orange (Pending Response), yellow (Due Follow-up), green (Replies Received), blue (Pending Approval)
-2. [DONE] Gold-bordered AI Pending Approval section with Approve & Send (green), Edit, Discard (red) buttons
-3. [DONE] Offer cards with urgency-colored left borders: red=14+ days, orange=7-14 days, green=<7 days
-4. [DONE] Recent Activity with icon circles: AI (amber), IN (green), OUT (blue)
-5. [DONE] Deduplicated activity by subject + date
+2. **[DONE] Built and pushed to main** - commit `1492b6b`
 
-**Deployed:**
-- cron-scheduler ✅ (--no-verify-jwt)
-- send-email ✅ (--no-verify-jwt)
-- Frontend last pushed: fac4285
-
-**Test Verification:**
-- SQL confirmed AI draft saved: `status='pending_approval'`, `email_type='ai_draft'`, to_email='info@propwire.com'
+3. **[IN PROGRESS] Bug fixes needed**:
+   - **AIEmailGenerator.tsx**: Missing property details panel (address, asking price, win-win score, strategy, agent contact info) and Level 1/2/3 offer selector above email generation buttons
+   - **OffersQueue.tsx**: Showing raw property IDs (`prop_1774207452339_4dc1dxj64`) instead of addresses - needs to join properties table (FIXED: added `properties?.address` display)
 
 ## Current Plan
 
-**Outstanding Issues:**
-1. [IN PROGRESS] Visual changes not showing in browser - duplicate `communications` query causing build errors in email-closer.tsx
-2. [TODO] Replace entire return JSX block with clean layout matching mockup (write_file entire component)
-3. [TODO] Verify browser renders new layout correctly
+1. [DONE] Fix OffersQueue to show addresses (property join) — DONE
+2. [TODO] Add property details panel + level selector to AIEmailGenerator.tsx
+3. [TODO] Rebuild and test at https://www.gta6.miami/agent/email-closer
+4. [TODO] Commit and push
 
-**CRM Features Implemented:**
-- ✅ Pending Response counter
-- ✅ Replies Received counter  
-- ✅ Due for Follow-up counter
-- ✅ Pending Approval section (shows AI drafts)
-- ✅ Notes field
-- ✅ Tags
-- ✅ Snooze button
-- ✅ Email templates
-- ✅ Offer levels/pipeline
-
-**Next Steps:**
-1. Fix duplicate `communications` useQuery in email-closer.tsx (lines ~127-157 vs ~170-185)
-2. Rewrite return block to match mockup exactly
-3. Push and verify browser shows new layout
+### Property Data Structure (from useLocation.state)
+```typescript
+{
+  property_id: string,
+  address: string,
+  city: string,
+  state: string,
+  listing_price: number,
+  estimated_value: number,
+  win_win_score: number,
+  strategy: string,
+  agent_name: string,
+  agent_email: string,
+  agent_phone: string,
+  brokerage: string,
+  level1_offer_price: number,
+  level1_entry_fee: number,
+  level1_monthly_payment: number,
+  level2_offer_price: number,
+  level2_entry_fee: number,
+  level3_offer_price: number,
+  level3_entry_fee: number,
+  level3_monthly_payment: number
+}
+```
 
 ---
 
 ## Summary Metadata
-**Update time**: 2026-05-06T23:13:01.967Z 
+**Update time**: 2026-05-07T01:36:59.047Z 

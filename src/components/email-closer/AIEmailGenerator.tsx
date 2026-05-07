@@ -1,4 +1,4 @@
-// AI Email Generator Component
+// Email Generator Panel - Just the email creation/send buttons (no property details)
 
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -50,7 +50,11 @@ const OBJECTION_TEMPLATES = [
   { type: 'condition', label: 'Property Condition', icon: '🏠' }
 ]
 
-export default function AIEmailGenerator({ selectedProperty, selectedLevel, onPropertyClear }: AIEmailGeneratorProps) {
+export default function AIEmailGenerator({ 
+  selectedProperty, 
+  selectedLevel,
+  onPropertyClear 
+}: AIEmailGeneratorProps) {
   const queryClient = useQueryClient()
   const [emailType, setEmailType] = useState('offer_presentation')
   const [objectionType, setObjectionType] = useState('')
@@ -217,7 +221,6 @@ export default function AIEmailGenerator({ selectedProperty, selectedLevel, onPr
       }, 3000)
     },
     onError: (err: any) => {
-      console.error('❌ Send error:', err)
       alert('Failed to send: ' + (err?.message || 'Unknown error'))
     }
   })
