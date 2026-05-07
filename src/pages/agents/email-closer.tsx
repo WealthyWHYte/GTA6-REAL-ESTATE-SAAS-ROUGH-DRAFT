@@ -3,10 +3,13 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
-import { MessageSquare, ArrowLeft } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { MessageSquare, ArrowLeft, Save, Send } from 'lucide-react'
 import { 
   StatsBar, 
   PendingApproval, 
@@ -26,6 +29,8 @@ export default function EmailCloserPage() {
   const [selectedOffer, setSelectedOffer] = useState<any>(null)
   const [selectedLevel, setSelectedLevel] = useState<1 | 2 | 3>(1)
   const [editingDraft, setEditingDraft] = useState<any>(null)
+  const [editSubject, setEditSubject] = useState('')
+  const [editBody, setEditBody] = useState('')
 
   // Load property from navigation
   useEffect(() => {
@@ -95,6 +100,55 @@ export default function EmailCloserPage() {
   // Stats
   const responded = (communications?.filter((c: any) => c.direction === 'inbound').length || 0) + (pendingApprovals?.length || 0)
 
+  // Save edited draft mutation
+  const saveDraftMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingDraft) return
+      await supabase
+        .from('communications')
+        .update({ subject: editSubject, body: editBody })
+        .eq('id', editingDraft.id)
+    },
+    onSuccess: () => {
+      setEditingDraft(null)
+      setEditSubject('')
+      setEditBody('')
+      queryClient.invalidateQueries({ queryKey: ['pending_approvals'] })
+    }
+  })
+
+  // Send edited draft mutation
+  const sendEditedMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingDraft) return
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      // Update draft first
+      await supabase
+        .from('communications')
+        .update({ subject: editSubject, body: editBody, status: 'sent' })
+        .eq('id', editingDraft.id)
+
+      // Send email
+      await supabase.functions.invoke('send-email', {
+        body: {
+          property_id: editingDraft.property_id,
+          recipient_email: editingDraft.to_email,
+          recipient_name: editingDraft.to_name || 'Seller',
+          subject: editSubject,
+          body: editBody
+        }
+      })
+    },
+    onSuccess: () => {
+      setEditingDraft(null)
+      setEditSubject('')
+      setEditBody('')
+      queryClient.invalidateQueries({ queryKey: ['pending_approvals'] })
+      queryClient.invalidateQueries({ queryKey: ['communications'] })
+    }
+  })
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
@@ -131,26 +185,66 @@ export default function EmailCloserPage() {
         <PendingApproval 
           drafts={pendingApprovals || []} 
           onEditDraft={(draft) => {
-            // Load draft into the email generator for editing
             setEditingDraft(draft)
-            setSelectedOffer({
-              property_id: draft.property_id,
-              address: draft.subject?.replace('Re: ', ''),
-              agent_email: draft.to_email,
-              agent_name: draft.to_name,
-              // Pre-fill with the draft content
-              level1_offer_price: 0,
-              level1_entry_fee: 0,
-              level1_monthly_payment: 0,
-              level2_offer_price: 0,
-              level2_entry_fee: 0,
-              level3_offer_price: 0,
-              level3_entry_fee: 0,
-              level3_monthly_payment: 0,
-              reasoning: draft.body
-            })
+            setEditSubject(draft.subject || '')
+            setEditBody(draft.body || '')
           }}
         />
+
+        {/* Inline Edit Panel - Shows when Edit clicked */}
+        {editingDraft && (
+          <Card className="border-2 border-blue-600 mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>✏️ Edit Draft</span>
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  onClick={() => setEditingDraft(null)}
+                >
+                  Cancel
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Subject</label>
+                <Input
+                  value={editSubject}
+                  onChange={(e) => setEditSubject(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Body</label>
+                <Textarea
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  rows={12}
+                  className="mt-1 font-mono text-sm"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => saveDraftMutation.mutate()}
+                  disabled={saveDraftMutation.isPending}
+                  variant="outline"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {saveDraftMutation.isPending ? 'Saving...' : 'Save Draft'}
+                </Button>
+                <Button
+                  onClick={() => sendEditedMutation.mutate()}
+                  disabled={sendEditedMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  {sendEditedMutation.isPending ? 'Sending...' : 'Save & Send'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
