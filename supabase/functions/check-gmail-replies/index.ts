@@ -123,23 +123,51 @@ serve(async (req) => {
         }
       }
 
-      // Try to find matching property/communication
-      const { data: existingComms } = await supabaseClient
+      // Try to find matching communication by property address in subject
+      // This filters out subscription emails (PropWire, etc.) vs replies to our offers
+      let propertyId = null
+      let communicationId = null
+      
+      // Get properties with sent communications for this account
+      const { data: sentComms } = await supabaseClient
         .from('communications')
-        .select('*')
+        .select('id, property_id, subject')
         .eq('account_id', user.id)
-        .ilike('to_email', `%${from.split('<')[1]?.replace('>', '').trim() || ''}%`)
+        .eq('direction', 'outbound')
+        .eq('status', 'sent')
+      
+      // Check if this email is replying to one of our sent emails
+      if (sentComms && sentComms.length > 0) {
+        for (const comm of sentComms) {
+          // Extract property address from our sent subject
+          // e.g., "Offer for 423 NE 3RD ST - $1,850,000" → "423 NE 3RD ST"
+          const ourAddress = comm.subject?.match(/for (.+) -/)?.[1] || ''
+          
+          if (ourAddress && from.toLowerCase().includes(from.split('<')[1]?.replace('>', '').trim()?.toLowerCase() || '')) {
+            // Check if this reply contains the property address or matches sender
+            if (subject.toLowerCase().includes(ourAddress.toLowerCase()) || 
+                subject.toLowerCase().includes('re:') ||
+                subject.toLowerCase().includes('responding')) {
+              propertyId = comm.property_id
+              communicationId = comm.id
+              break
+            }
+          }
+        }
+      }
 
-      const propertyId = existingComms?.[0]?.property_id
-
-      newReplies.push({
-        id: msg.id,
-        from,
-        subject,
-        body: body.substring(0, 500),
-        property_id: propertyId,
-        date: msgDate.toISOString()
-      })
+      // Only add if it's a reply to one of our sent emails
+      if (propertyId) {
+        newReplies.push({
+          id: msg.id,
+          from,
+          subject,
+          body: body.substring(0, 500),
+          property_id: propertyId,
+          communication_id: communicationId,
+          date: msgDate.toISOString()
+        })
+      }
     }
 
     return new Response(
