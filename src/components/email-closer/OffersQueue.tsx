@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Mail, CheckCircle } from 'lucide-react'
 
-interface Offer {
+export interface Offer {
   id: string
   property_id: string
   status: string
@@ -18,7 +18,7 @@ interface Offer {
   }
 }
 
-interface OffersQueueProps {
+export interface OffersQueueProps {
   offers: Offer[]
   onSelectOffer: (offer: Offer) => void
   selectedPropertyId?: string

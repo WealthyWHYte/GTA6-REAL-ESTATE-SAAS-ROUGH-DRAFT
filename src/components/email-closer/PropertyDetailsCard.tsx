@@ -2,9 +2,9 @@
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Target, User, Home, DollarSign, TrendingUp } from 'lucide-react'
+import { Target, User, Home } from 'lucide-react'
 
-interface PropertyDetails {
+export interface PropertyDetails {
   property_id: string
   address?: string
   city?: string
@@ -38,7 +38,7 @@ interface PropertyDetails {
   level3_seller_carry_rate?: number
 }
 
-interface PropertyDetailsCardProps {
+export interface PropertyDetailsCardProps {
   property: PropertyDetails
 }
 

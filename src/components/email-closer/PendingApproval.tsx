@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 
-interface Draft {
+export interface Draft {
   id: string
   property_id: string
   to_email: string
@@ -15,11 +15,12 @@ interface Draft {
   created_at: string
 }
 
-interface PendingApprovalProps {
+export interface PendingApprovalProps {
   drafts: Draft[]
+  onEditDraft?: (draft: Draft) => void
 }
 
-export default function PendingApproval({ drafts }: PendingApprovalProps) {
+export default function PendingApproval({ drafts, onEditDraft }: PendingApprovalProps) {
   const queryClient = useQueryClient()
 
   const approveMutation = useMutation({
@@ -109,7 +110,12 @@ export default function PendingApproval({ drafts }: PendingApprovalProps) {
             >
               {approveMutation.isPending ? 'Sending...' : 'Approve & Send'}
             </Button>
-            <Button size="sm" variant="outline" className="text-[12px] px-4">Edit</Button>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="text-[12px] px-4"
+              onClick={() => onEditDraft?.(draft)}
+            >Edit</Button>
             <Button
               size="sm"
               onClick={() => discardMutation.mutate(draft)}

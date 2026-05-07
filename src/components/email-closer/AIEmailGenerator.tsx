@@ -1,4 +1,4 @@
-// Email Generator Panel - Just the email creation/send buttons (no property details)
+// AI Email Generator Panel - Just the email creation/send buttons (no property details)
 
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Send, CheckCircle } from 'lucide-react'
 
-interface PropertyData {
+export interface PropertyData {
   property_id: string
   address?: string
   city?: string
@@ -36,7 +36,7 @@ interface PropertyData {
   reasoning?: string
 }
 
-interface AIEmailGeneratorProps {
+export interface AIEmailGeneratorProps {
   selectedProperty: PropertyData | null
   selectedLevel: number
   onPropertyClear: () => void

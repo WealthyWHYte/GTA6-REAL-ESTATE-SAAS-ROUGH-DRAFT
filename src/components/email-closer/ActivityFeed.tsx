@@ -2,7 +2,7 @@
 
 import { History } from 'lucide-react'
 
-interface Communication {
+export interface Communication {
   id: string
   property_id?: string
   to_email?: string
@@ -14,7 +14,7 @@ interface Communication {
   created_at: string
 }
 
-interface ActivityFeedProps {
+export interface ActivityFeedProps {
   communications: Communication[]
 }
 

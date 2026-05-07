@@ -25,6 +25,7 @@ export default function EmailCloserPage() {
   const location = useLocation()
   const [selectedOffer, setSelectedOffer] = useState<any>(null)
   const [selectedLevel, setSelectedLevel] = useState<1 | 2 | 3>(1)
+  const [editingDraft, setEditingDraft] = useState<any>(null)
 
   // Load property from navigation
   useEffect(() => {
@@ -127,7 +128,29 @@ export default function EmailCloserPage() {
         />
 
         {/* Pending Approval - Gold bordered */}
-        <PendingApproval drafts={pendingApprovals || []} />
+        <PendingApproval 
+          drafts={pendingApprovals || []} 
+          onEditDraft={(draft) => {
+            // Load draft into the email generator for editing
+            setEditingDraft(draft)
+            setSelectedOffer({
+              property_id: draft.property_id,
+              address: draft.subject?.replace('Re: ', ''),
+              agent_email: draft.to_email,
+              agent_name: draft.to_name,
+              // Pre-fill with the draft content
+              level1_offer_price: 0,
+              level1_entry_fee: 0,
+              level1_monthly_payment: 0,
+              level2_offer_price: 0,
+              level2_entry_fee: 0,
+              level3_offer_price: 0,
+              level3_entry_fee: 0,
+              level3_monthly_payment: 0,
+              reasoning: draft.body
+            })
+          }}
+        />
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -158,7 +181,10 @@ export default function EmailCloserPage() {
             <AIEmailGenerator
               selectedProperty={selectedOffer}
               selectedLevel={selectedLevel}
-              onPropertyClear={() => setSelectedOffer(null)}
+              onPropertyClear={() => {
+                setSelectedOffer(null)
+                setEditingDraft(null)
+              }}
             />
           </div>
 

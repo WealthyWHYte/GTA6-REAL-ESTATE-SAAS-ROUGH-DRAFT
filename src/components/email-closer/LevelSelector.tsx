@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Calculator, ChevronDown } from 'lucide-react'
 
-interface PropertyData {
+export interface PropertyData {
   listing_price?: number
   level1_offer_price?: number
   level1_entry_fee?: number
@@ -21,7 +21,7 @@ interface PropertyData {
   level3_seller_carry_amount?: number
 }
 
-interface LevelSelectorProps {
+export interface LevelSelectorProps {
   property: PropertyData
   selectedLevel: number
   onSelectLevel: (level: 1 | 2 | 3) => void
@@ -40,7 +40,7 @@ export default function LevelSelector({ property, selectedLevel, onSelectLevel }
       entryFee: property.level1_entry_fee || 0,
       monthly: property.level1_monthly_payment || 0,
       rate: property.level1_seller_carry_rate || 7,
-      structure: '70% of asking price with seller financing. Seller carries a promissory note with monthly payments over agreed term.'
+      structure: '70% of asking price with seller financing. Seller carries a promissory note with monthly payments.'
     },
     {
       level: 2,
@@ -49,7 +49,7 @@ export default function LevelSelector({ property, selectedLevel, onSelectLevel }
       entryFee: property.level2_entry_fee || 0,
       monthly: 0,
       rate: 0,
-      structure: '70% of asking price, all-cash offer. No monthly payments, fastest closing, lowest seller risk.'
+      structure: '70% of asking price, all-cash offer. No monthly payments, fastest closing.'
     },
     {
       level: 3,
@@ -60,7 +60,7 @@ export default function LevelSelector({ property, selectedLevel, onSelectLevel }
       rate: property.level3_seller_carry_rate || 7,
       assumeMortgage: property.level3_assume_mortgage || 0,
       sellerCarry: property.level3_seller_carry_amount || 0,
-      structure: 'Full asking price with creative terms. Buyer assumes existing mortgage + seller carries second position. Highest seller acceptance rate.'
+      structure: 'Full asking price with creative terms. Highest seller acceptance rate.'
     }
   ]
 

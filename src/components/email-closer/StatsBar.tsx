@@ -2,7 +2,7 @@
 
 import { Mail, MessageSquare, Clock, CheckCircle } from 'lucide-react'
 
-interface StatsBarProps {
+export interface StatsBarProps {
   pending: number
   followUps: number
   replied: number
