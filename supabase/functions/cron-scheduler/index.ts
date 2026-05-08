@@ -116,18 +116,19 @@ serve(async (req) => {
 
     console.log('Fetched account config:', JSON.stringify(account), 'Error:', fetchError)
 
-    // Check if token is expired or missing - refresh if needed
+    // Check if token is expired or within 10 minutes of expiring - refresh if needed
     let accessToken = account?.gmail_access_token || ''
     const tokenExpiry = account?.gmail_token_expiry ? new Date(account.gmail_token_expiry) : null
     const now = new Date()
-    const isTokenExpired = !tokenExpiry || tokenExpiry.getTime() - now.getTime() < 5 * 60 * 1000  // Refresh 5 min before expiry
+    const tenMinMs = 10 * 60 * 1000 // 10 minutes in milliseconds
+    const isTokenExpiringSoon = !tokenExpiry || tokenExpiry.getTime() - now.getTime() < tenMinMs
 
     if (account?.gmail_refresh_token) {
       refreshToken = account.gmail_refresh_token
       
-      // If token missing or expired, refresh it
-      if (isTokenExpired || !accessToken) {
-        console.log('⏳ Token expired or missing, refreshing from Google...')
+      // If token missing or expiring within 10 minutes, refresh it
+      if (isTokenExpiringSoon || !accessToken) {
+        console.log('⏳ Token missing or expiring soon, refreshing from Google...')
         
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
           method: 'POST',
@@ -272,11 +273,17 @@ serve(async (req) => {
         console.log(`📝 Created draft for ${sellerName}: ${objectionType}`)
       }
 
-      // Update last sync time
+      // Update last sync timestamp after each successful poll
+      const nowISO = new Date().toISOString()
       await supabase
         .from('user_api_config')
-        .update({ gmail_connected_at: new Date().toISOString() })
+        .update({ 
+          gmail_last_sync: nowISO,
+          gmail_connected_at: nowISO
+        })
         .eq('account_id', TARGET_ACCOUNT_ID)
+
+      console.log(`✅ Gmail poll complete, last sync: ${nowISO}`)
 
     return new Response(JSON.stringify({
       success: true,
